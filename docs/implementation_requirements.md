@@ -42,11 +42,11 @@ optional extras:
 Section 2.5.8 names these as limitations of existing work. The proposal does not
 commit to addressing them, so they are flagged rather than assumed:
 
-| Gap | Source | Note |
+| Gap | Source | Decision |
 |---|---|---|
-| Model interpretability; Grad-CAM named explicitly | 2.5.8 | Would strengthen the work and is cheap to add once a model trains. Awaiting a decision. |
-| External validation on an independent dataset | 2.5.8; 2.5.5 | This project draws on three separate sources, so a cross-source held-out test is available at no extra data cost. |
-| Cross-validation | 2.5.5 | Mentioned as common practice, not required by the proposal. |
+| Model interpretability; Grad-CAM named explicitly | 2.5.8 | **In scope.** Grad-CAM saliency maps are produced for test predictions, both to address the gap and to check the model attends to the lesion rather than to dataset artefacts. |
+| External validation on an independent dataset | 2.5.8; 2.5.5 | Out of scope. Listed as future work. |
+| Cross-validation | 2.5.5 | Out of scope; not required by the proposal. |
 
 ## Dataset sources
 
@@ -67,7 +67,9 @@ Excluded, with reasons:
   fixed by the proposal. Retained on disk, unused.
 - **Montage thumbnail sheets (277 images, Figshare A1/A2).** Each file is a grid
   of several hundred tiny nail images tiled into one picture, so each would
-  enter training as a single mislabelled example. Unusable without tiling.
+  enter training as a single mislabelled example. Tiled into individual images
+  by `src/extract_montages.py` before use; the sheets themselves never enter
+  training.
 - **Segmentation masks (Mendeley `wound_mask`, FUSeg `labels/`).** Ground-truth
   masks for a segmentation task, not photographs. Held outside `data/raw/`.
 
@@ -80,5 +82,8 @@ therefore never see a healthy nail close-up during training, and a user
 photographing a healthy nail would most likely have it classified as fungal
 infection — a false positive in exactly the use case the proposal describes.
 
-Healthy nail images do exist in the A1 montage sheets (filenames encode
-`normalnail`), but require tiling to extract. Decision pending.
+Healthy nail images do exist in the A1 montage sheets, whose filenames encode
+the class (`normalnail`, `naildystrophy`, `-focus`). **Resolved:**
+`src/extract_montages.py` tiles the `normalnail` sheets into individual healthy
+nail images, which join the Healthy Foot/Nail class alongside the Mendeley
+whole-foot photographs.
