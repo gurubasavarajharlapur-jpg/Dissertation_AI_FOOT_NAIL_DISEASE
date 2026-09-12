@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# AI-Based Early Detection and Classification of Foot and Nail Conditions
+# Using Transfer Learning for Rural Healthcare
+#
+#   python -m venv .venv
+#   source .venv/bin/activate          # Windows: .venv\Scripts\activate
+#   pip install -r requirements.txt
+#
+# Python 3.10-3.12.
+#
+# On a machine with no NVIDIA GPU, replace `tensorflow` with `tensorflow-cpu`
+# below: same API, roughly a tenth of the download.
+#
+# On Google Colab, TensorFlow is pre-installed — run
+#   !pip install -r requirements.txt
+# anyway, it is a fast no-op for the packages Colab already has.
+# ---------------------------------------------------------------------------
+
+# --- Deep learning ---------------------------------------------------------
+# TensorFlow 2.16 and later bundle Keras 3, which is the API this project is
+# written against. Keras 3 removed `ImageDataGenerator`; augmentation here uses
+# `tf.data` plus preprocessing layers (see src/config.py AUGMENTATION).
+# Do NOT pin keras<3 — that combination is unsupported with modern TensorFlow.
+tensorflow>=2.16,<3.0
+keras>=3.0,<4.0
+
+# --- Image loading and cleaning --------------------------------------------
+# Headless OpenCV: no GUI/X11 libraries, which matters on a server or in Colab.
+opencv-python-headless>=4.8
+Pillow>=10.0
+
+# --- Numerics, splitting, metrics ------------------------------------------
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.3
+scipy>=1.11
+
+# --- Plotting: confusion matrices, training curves, class distributions -----
+matplotlib>=3.7
+seaborn>=0.13
+
+# --- Notebooks (Colab-compatible exploration) ------------------------------
+jupyter>=1.0
+notebook>=7.0
+ipykernel>=6.25
+
+# --- Prototype: image upload -> prediction interface -----------------------
+streamlit>=1.30
+
+# --- Utilities -------------------------------------------------------------
+PyYAML>=6.0
+tqdm>=4.66
+requests>=2.31
