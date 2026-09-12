@@ -81,10 +81,18 @@ def _modal_span(bands: list[tuple[int, int]]) -> int:
     return Counter(b - a for a, b in bands).most_common(1)[0][0]
 
 
-def sheet_label(path: Path) -> str:
-    """The text after the final '#' in the filename, lowercased."""
-    stem = path.stem
-    return (stem.rsplit("#", 1)[-1] if "#" in stem else stem).strip().lower()
+def sheet_label(path: Path) -> str | None:
+    """The text after the final '#' in the filename, lowercased.
+
+    Returns None for a filename with no '#'. The montage sheets all follow the
+    publisher's 'L#NAIL#...#<label>.png' convention, so anything else under the
+    same tree is a per-image file rather than a contact sheet — scanning the
+    whole figshare_nail directory otherwise reports hundreds of individual
+    photographs as unrecognised sheet labels.
+    """
+    if "#" not in path.stem:
+        return None
+    return path.stem.rsplit("#", 1)[-1].strip().lower()
 
 
 def _background_value(gray: np.ndarray) -> int:
@@ -315,15 +323,18 @@ def main() -> int:
         p for p in sorted(args.source.rglob("*"))
         if p.is_file() and p.suffix.lower() in config.VALID_EXTENSIONS
     ]
-    by_label = Counter(sheet_label(p) for p in sheets)
+    candidates = [p for p in sheets if sheet_label(p) is not None]
+    by_label = Counter(sheet_label(p) for p in candidates)
     print(f"{len(sheets)} file(s) under {args.source}")
-    print("labels found:")
+    print(f"{len(candidates)} follow the montage naming convention "
+          f"('...#<label>.png'); {len(sheets) - len(candidates)} are per-image files")
+    print("sheet labels found:")
     for label, count in by_label.most_common():
         target = LABEL_TO_CLASS.get(label, "UNMAPPED")
         print(f"  {label:<20} {count:>5}  -> {target}")
 
     selected = [
-        p for p in sheets
+        p for p in candidates
         if (args.label == "all" or sheet_label(p) == args.label)
         and LABEL_TO_CLASS.get(sheet_label(p)) is not None
     ]
