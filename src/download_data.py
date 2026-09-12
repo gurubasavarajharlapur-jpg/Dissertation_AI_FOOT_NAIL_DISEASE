@@ -54,6 +54,23 @@ MENDELEY_API = (
     f"/files?folder_id=root&version={MENDELEY_VERSION}"
 )
 MENDELEY_LANDING = f"https://data.mendeley.com/datasets/{MENDELEY_DOI}/{MENDELEY_VERSION}"
+# The "Download all" button on a Mendeley Data page serves a pre-built archive
+# from this S3 cache. Used as a fallback when the JSON API refuses the request,
+# which it does from some networks and automated clients.
+MENDELEY_BULK_ZIP = (
+    f"https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/"
+    f"{MENDELEY_DOI}-{MENDELEY_VERSION}.zip"
+)
+
+# Both hosts reject requests that do not look like a browser, returning 403 with
+# no explanation. Sending a normal User-Agent is enough to be served.
+HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+}
 
 FIGSHARE_ARTICLE_ID = 5398573
 FIGSHARE_API = f"https://api.figshare.com/v2/articles/{FIGSHARE_ARTICLE_ID}"
@@ -70,9 +87,22 @@ class DatasetUnavailable(RuntimeError):
 def _get_json(url: str, what: str) -> dict | list:
     """GET a JSON endpoint, turning network failures into an actionable error."""
     try:
-        response = requests.get(url, timeout=REQUEST_TIMEOUT)
+        response = requests.get(url, timeout=REQUEST_TIMEOUT, headers=HTTP_HEADERS)
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else "?"
+        hint = ""
+        if status in (401, 403):
+            hint = (
+                "\n  A 403 here is the host refusing the request, not a network "
+                "problem — the\n  endpoint may now require a browser session or an "
+                "account."
+            )
+        raise DatasetUnavailable(
+            f"the {what} API returned HTTP {status} for {url}{hint}\n"
+            f"  Fall back to a manual download (see --help) and unzip into data/raw/."
+        ) from exc
     except requests.exceptions.RequestException as exc:
         raise DatasetUnavailable(
             f"could not reach the {what} API at {url}\n"
@@ -88,7 +118,50 @@ def _get_json(url: str, what: str) -> dict | list:
 
 
 def list_mendeley_files() -> list[dict]:
-    """File listing for the Mendeley dataset: name, size and download URL."""
+    """File listing for the Mendeley dataset: name, size and download URL.
+
+    Tries the JSON API first, since it gives per-file names and sizes. That
+    endpoint refuses some clients outright with a 403, so the "Download all"
+    bulk archive is used as a fallback — it fetches the same data as one zip,
+    just without a per-file breakdown beforehand.
+    """
+    try:
+        return _list_mendeley_via_api()
+    except DatasetUnavailable as api_error:
+        print(f"  Mendeley JSON API unavailable ({api_error.args[0].splitlines()[0]})")
+        print(f"  Falling back to the bulk archive: {MENDELEY_BULK_ZIP}")
+        return _list_mendeley_bulk()
+
+
+def _list_mendeley_bulk() -> list[dict]:
+    """Single-entry listing for the whole-dataset zip.
+
+    A HEAD request confirms the archive is actually there and reports its size,
+    so a broken fallback fails here rather than part-way through a download.
+    """
+    try:
+        response = requests.head(
+            MENDELEY_BULK_ZIP, timeout=REQUEST_TIMEOUT, headers=HTTP_HEADERS,
+            allow_redirects=True,
+        )
+        response.raise_for_status()
+    except requests.exceptions.RequestException as exc:
+        raise DatasetUnavailable(
+            f"the Mendeley bulk archive is not reachable either: {exc}\n"
+            f"  Download it manually from {MENDELEY_LANDING} (the 'Download all'\n"
+            f"  button) and unzip into data/raw/mendeley_foot/."
+        ) from exc
+
+    return [
+        {
+            "name": f"{MENDELEY_DOI}-{MENDELEY_VERSION}.zip",
+            "size": int(response.headers.get("content-length") or 0),
+            "url": MENDELEY_BULK_ZIP,
+        }
+    ]
+
+
+def _list_mendeley_via_api() -> list[dict]:
     payload = _get_json(MENDELEY_API, "Mendeley Data")
     # The endpoint returns a bare list of file objects for a folder listing.
     entries = payload if isinstance(payload, list) else payload.get("results", [])
@@ -158,7 +231,9 @@ def download_file(url: str, destination: Path, expected_size: int = 0) -> Path:
 
     partial = destination.with_suffix(destination.suffix + ".part")
     try:
-        with requests.get(url, stream=True, timeout=REQUEST_TIMEOUT) as response:
+        with requests.get(
+            url, stream=True, timeout=REQUEST_TIMEOUT, headers=HTTP_HEADERS
+        ) as response:
             response.raise_for_status()
             total = int(response.headers.get("content-length") or expected_size or 0)
             with open(partial, "wb") as handle, tqdm(
