@@ -259,6 +259,78 @@ COMPARISON_MODEL = "resnet50"
 MODEL_NAMES: list[str] = [PRIMARY_MODEL, COMPARISON_MODEL]
 
 
+# ---------------------------------------------------------------------------
+# Confidence calibration and selective prediction
+# ---------------------------------------------------------------------------
+# Modern deep networks are systematically overconfident: a softmax output of
+# 0.9 does not mean the model is right 90% of the time (Guo et al., "On
+# Calibration of Modern Neural Networks", ICML 2017). That matters here more
+# than in most applications — the whole premise is a health worker with no
+# specialist to consult, for whom a confidently wrong answer is worse than an
+# admission of uncertainty.
+#
+# Temperature scaling corrects this with a single parameter, fitted on the
+# VALIDATION split. Fitting it on test would make the reported calibration a
+# property of the fitting, not a measurement.
+CALIBRATION_BINS = 15
+
+# Selective prediction: below a confidence threshold the prototype abstains and
+# recommends consulting a clinician instead of naming a condition. The threshold
+# is chosen on validation as the lowest one reaching the target accuracy among
+# accepted cases, provided at least MIN_COVERAGE of cases are still answered —
+# a tool that abstains on everything is safe and useless.
+SELECTIVE_TARGET_ACCURACY = 0.99
+SELECTIVE_MIN_COVERAGE = 0.70
+
+# ---------------------------------------------------------------------------
+# Clinical guidance shown by the prototype
+# ---------------------------------------------------------------------------
+# Fixed text attached to each CLASS, not produced by the model. The network was
+# trained on class labels alone: it has never seen severity, infection status,
+# depth or patient history, so it cannot judge urgency. Presenting a
+# model-derived urgency would be inventing a capability the data does not
+# support. These strings are clinical guidance keyed to the predicted class and
+# should be reviewed against a cited source (IWGDF guidelines on the diabetic
+# foot; NICE NG19 for UK practice) before the prototype is shown to anyone.
+CLINICAL_GUIDANCE: dict[str, str] = {
+    "healthy": (
+        "No concerning features detected. Continue routine foot care and "
+        "hygiene. Seek advice if the appearance changes."
+    ),
+    "nail_fungal": (
+        "Non-urgent. Arrange a routine consultation. Fungal nail infection is "
+        "treatable but usually requires several months of therapy, so earlier "
+        "treatment is easier."
+    ),
+    "foot_wound": (
+        "Seek medical attention within a few days. Sooner if you have diabetes, "
+        "or if there is spreading redness, swelling, warmth or discharge."
+    ),
+    "foot_ulcer": (
+        "Seek medical attention promptly. Foot ulcers can deteriorate quickly, "
+        "particularly in people with diabetes, and benefit from early "
+        "professional assessment."
+    ),
+}
+
+# Shown whenever the model abstains, and alongside every prediction.
+UNCERTAIN_GUIDANCE = (
+    "The model could not classify this image with sufficient confidence. "
+    "This does not mean nothing is wrong. Consult a healthcare professional."
+)
+
+DISCLAIMER = (
+    "Research prototype built for an MSc dissertation. This is NOT a medical "
+    "device and must not be used for diagnosis or to decide treatment. Always "
+    "consult a qualified healthcare professional."
+)
+
+
+def calibration_path(model_name: str) -> Path:
+    """Where a model's fitted temperature and abstention threshold are stored."""
+    return METRICS_DIR / f"{model_name}_calibration.json"
+
+
 def model_path(model_name: str) -> Path:
     """Where a trained model's weights are saved."""
     return MODELS_DIR / f"{model_name}_best.keras"
@@ -286,6 +358,12 @@ def validate() -> None:
     missing = set(MODEL_NAMES) - set(FINETUNE_LAYERS)
     if missing:
         raise ValueError(f"FINETUNE_LAYERS is missing an entry for: {sorted(missing)}")
+
+    missing_guidance = set(CLASS_NAMES) - set(CLINICAL_GUIDANCE)
+    if missing_guidance:
+        raise ValueError(f"CLINICAL_GUIDANCE has no entry for: {sorted(missing_guidance)}")
+    if not 0 < SELECTIVE_MIN_COVERAGE <= 1:
+        raise ValueError("SELECTIVE_MIN_COVERAGE must be in (0, 1]")
 
     for name, mapping in (("FOLDER_TO_CLASS", FOLDER_TO_CLASS),
                           ("LEAF_FOLDER_TO_CLASS", LEAF_FOLDER_TO_CLASS)):
