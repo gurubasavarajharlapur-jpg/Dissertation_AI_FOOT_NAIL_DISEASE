@@ -2,6 +2,9 @@
 # Data: the raw and processed image sets are large and are not redistributable
 # under the source datasets' licences. Keep the folders, never the contents.
 # ---------------------------------------------------------------------------
+data/*
+!data/raw/
+!data/processed/
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
