@@ -235,13 +235,25 @@ def compile_model(model: keras.Model, learning_rate: float) -> None:
     )
 
 
-def callbacks_for(model_name: str, stage: str) -> list[keras.callbacks.Callback]:
+def callbacks_for(
+    model_name: str, stage: str, best_so_far: float | None = None
+) -> list[keras.callbacks.Callback]:
+    """Callbacks for one training stage.
+
+    ``best_so_far`` carries stage 1's best score into stage 2's checkpoint. A
+    fresh ModelCheckpoint starts from "infinitely bad", so without it the first
+    fine-tuning epoch overwrites the head-training checkpoint even when it is
+    worse — leaving a saved model that does not match the best score the run
+    reports. Early stopping deliberately does NOT inherit it: its patience
+    should count from the start of fine-tuning.
+    """
     return [
         keras.callbacks.ModelCheckpoint(
             filepath=str(config.model_path(model_name)),
             monitor=config.MONITOR_METRIC,
             mode=config.MONITOR_MODE,
             save_best_only=True,
+            initial_value_threshold=best_so_far,
             verbose=0,
         ),
         keras.callbacks.EarlyStopping(
@@ -345,10 +357,13 @@ def train_one(model_name: str, epochs_head: int, epochs_finetune: int) -> dict:
     trainable = int(np.sum([np.prod(v.shape) for v in model.trainable_weights]))
     print(f"trainable parameters: {trainable:,} of {total_params:,}")
 
+    stage1_best = min(history["val_loss"]) if "val_loss" in history else None
     stage2 = model.fit(
         train_ds, validation_data=val_ds, epochs=epochs_finetune,
         shuffle=False,
-        class_weight=weights, callbacks=callbacks_for(model_name, "finetune"), verbose=2,
+        class_weight=weights,
+        callbacks=callbacks_for(model_name, "finetune", best_so_far=stage1_best),
+        verbose=2,
     )
     for key, values in stage2.history.items():
         history.setdefault(key, []).extend(values)
@@ -361,6 +376,8 @@ def train_one(model_name: str, epochs_head: int, epochs_finetune: int) -> dict:
         "stage_boundary_epoch": boundary,
         "epochs_run": len(history["loss"]),
         "best_epoch": best_epoch,
+        "best_stage": "head" if best_epoch <= boundary else "finetune",
+        "stage1_best_val_loss": float(stage1_best) if stage1_best is not None else None,
         "best_val_loss": float(min(history["val_loss"])),
         "best_val_accuracy": float(history["val_accuracy"][best_epoch - 1]),
         "total_parameters": int(total_params),
