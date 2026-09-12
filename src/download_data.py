@@ -72,10 +72,12 @@ USER_AGENT = (
 # Metadata endpoints return JSON.
 API_HEADERS = {"User-Agent": USER_AGENT, "Accept": "application/json, text/plain, */*"}
 
-# File downloads must NOT advertise a JSON preference: asking a download
-# endpoint for application/json can get an empty body back instead of the
-# archive, which is what silently produced three 0-byte "downloads".
-DOWNLOAD_HEADERS = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+# File downloads send NO custom headers. The Figshare archives downloaded
+# correctly with requests' own defaults and returned 0 bytes as soon as a
+# browser User-Agent was attached — its CDN evidently serves browsers something
+# other than the raw file. Only the metadata endpoints need to look like a
+# browser, and only because Mendeley's rejects everything else.
+DOWNLOAD_HEADERS: dict[str, str] = {}
 
 FIGSHARE_ARTICLE_ID = 5398573
 FIGSHARE_API = f"https://api.figshare.com/v2/articles/{FIGSHARE_ARTICLE_ID}"
@@ -146,7 +148,7 @@ def _list_mendeley_bulk() -> list[dict]:
     """
     try:
         response = requests.head(
-            MENDELEY_BULK_ZIP, timeout=REQUEST_TIMEOUT, headers=DOWNLOAD_HEADERS,
+            MENDELEY_BULK_ZIP, timeout=REQUEST_TIMEOUT, headers=DOWNLOAD_HEADERS or None,
             allow_redirects=True,
         )
         response.raise_for_status()
@@ -237,9 +239,17 @@ def download_file(url: str, destination: Path, expected_size: int = 0) -> Path:
     partial = destination.with_suffix(destination.suffix + ".part")
     try:
         with requests.get(
-            url, stream=True, timeout=REQUEST_TIMEOUT, headers=DOWNLOAD_HEADERS
+            url, stream=True, timeout=REQUEST_TIMEOUT, headers=DOWNLOAD_HEADERS or None
         ) as response:
             response.raise_for_status()
+            # Captured before streaming so a zero-length body can be explained
+            # rather than just reported.
+            diagnostics = (
+                f"HTTP {response.status_code}, "
+                f"content-type={response.headers.get('content-type', '?')}, "
+                f"content-length={response.headers.get('content-length', 'absent')}, "
+                f"redirects={len(response.history)}, final-url={response.url}"
+            )
             total = int(response.headers.get("content-length") or expected_size or 0)
             with open(partial, "wb") as handle, tqdm(
                 total=total or None,
@@ -263,6 +273,7 @@ def download_file(url: str, destination: Path, expected_size: int = 0) -> Path:
         partial.unlink(missing_ok=True)
         raise DatasetUnavailable(
             f"'{destination.name}' downloaded as 0 bytes from {url}\n"
+            f"  response: {diagnostics}\n"
             f"  The server accepted the request but sent no content. Download the\n"
             f"  dataset manually (see --help) and unzip it into data/raw/."
         )
