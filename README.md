@@ -107,6 +107,10 @@ Open `notebooks/01_data_exploration.ipynb` in Colab. Its first cell detects
 Colab, mounts Drive, clones this repo and installs the requirements. The dataset
 is symlinked to Drive so it survives the runtime being recycled.
 
+The notebook clones the `claude/foot-nail-disease-ai-fyrdsb` branch explicitly.
+The project code is not on `main` yet, so a plain `git clone` checks out an
+empty repository.
+
 ## Usage
 
 ```bash
