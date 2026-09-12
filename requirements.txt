@@ -6,7 +6,7 @@
 #   source .venv/bin/activate          # Windows: .venv\Scripts\activate
 #   pip install -r requirements.txt
 #
-# Python 3.10-3.12.
+# Python 3.10 or newer (Colab currently ships 3.13).
 #
 # On a machine with no NVIDIA GPU, replace `tensorflow` with `tensorflow-cpu`
 # below: same API, roughly a tenth of the download.

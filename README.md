@@ -82,7 +82,7 @@ an experiment is fully described by one file.
 
 ## Setup
 
-Requires Python 3.10–3.12.
+Requires Python 3.10 or newer (tested on 3.11; Colab currently ships 3.13).
 
 ```bash
 git clone https://github.com/gurubasavarajharlapur-jpg/Dissertation_AI_FOOT_NAIL_DISEASE.git
