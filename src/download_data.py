@@ -1,0 +1,296 @@
+"""Download the public source datasets into data/raw/.
+
+Two public datasets back this project:
+
+1. Mendeley Data, DOI 10.17632/hsj38fwnvr.3
+   https://data.mendeley.com/datasets/hsj38fwnvr/3
+   Foot imagery — the source for the wound/ulcer categories.
+
+2. Figshare, article 5398573
+   https://figshare.com/articles/dataset/5398573
+   "Model Onychomycosis Training Datasets (JPG thumbnails) and Validation
+   Datasets (JPG images)" — the source for the nail fungal category.
+
+Both are fetched through their public REST APIs, which expose per-file download
+URLs without requiring an account.
+
+    python src/download_data.py                 # both datasets
+    python src/download_data.py --source figshare
+    python src/download_data.py --list          # show files, download nothing
+
+IMPORTANT — this script downloads into `data/raw/_downloads/` and unpacks into
+`data/raw/<source>/`, preserving whatever folder names the publishers used. It
+does NOT sort images into this project's four classes: that mapping depends on
+the real folder structure and is decided after `src/inspect_data.py` reports
+what is actually there. Inventing a mapping before looking at the data is how
+mislabelled training sets happen.
+
+LICENSING — check and record each dataset's licence and citation before using
+it in the dissertation. Both must be cited in the methodology chapter. The
+`--list` output includes the licence field where the API provides it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import sys
+import tarfile
+import zipfile
+from pathlib import Path
+
+import requests
+from tqdm import tqdm
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src import config  # noqa: E402
+
+MENDELEY_DOI = "hsj38fwnvr"
+MENDELEY_VERSION = 3
+MENDELEY_API = (
+    f"https://data.mendeley.com/public-api/datasets/{MENDELEY_DOI}"
+    f"/files?folder_id=root&version={MENDELEY_VERSION}"
+)
+MENDELEY_LANDING = f"https://data.mendeley.com/datasets/{MENDELEY_DOI}/{MENDELEY_VERSION}"
+
+FIGSHARE_ARTICLE_ID = 5398573
+FIGSHARE_API = f"https://api.figshare.com/v2/articles/{FIGSHARE_ARTICLE_ID}"
+FIGSHARE_LANDING = f"https://figshare.com/articles/dataset/{FIGSHARE_ARTICLE_ID}"
+
+DOWNLOAD_DIR = config.RAW_DIR / "_downloads"
+REQUEST_TIMEOUT = 60
+
+
+class DatasetUnavailable(RuntimeError):
+    """The dataset host could not be reached or refused the request."""
+
+
+def _get_json(url: str, what: str) -> dict | list:
+    """GET a JSON endpoint, turning network failures into an actionable error."""
+    try:
+        response = requests.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as exc:
+        raise DatasetUnavailable(
+            f"could not reach the {what} API at {url}\n"
+            f"  reason: {exc}\n"
+            f"  If you are behind a proxy, firewall or restricted network, download\n"
+            f"  the dataset manually (see --help) and unzip it into data/raw/."
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise DatasetUnavailable(
+            f"the {what} API returned a non-JSON response — the endpoint may have "
+            f"changed, or a captive portal intercepted the request: {exc}"
+        ) from exc
+
+
+def list_mendeley_files() -> list[dict]:
+    """File listing for the Mendeley dataset: name, size and download URL."""
+    payload = _get_json(MENDELEY_API, "Mendeley Data")
+    # The endpoint returns a bare list of file objects for a folder listing.
+    entries = payload if isinstance(payload, list) else payload.get("results", [])
+    files = []
+    for entry in entries:
+        content = entry.get("content_details") or {}
+        url = content.get("download_url") or entry.get("download_url")
+        if not url:
+            continue
+        files.append(
+            {
+                "name": entry.get("filename") or content.get("filename") or "unknown",
+                "size": int(content.get("size") or entry.get("size") or 0),
+                "url": url,
+            }
+        )
+    if not files:
+        raise DatasetUnavailable(
+            f"the Mendeley API returned no downloadable files for {MENDELEY_DOI} "
+            f"version {MENDELEY_VERSION}. Check {MENDELEY_LANDING} in a browser — "
+            f"the version number may have moved on."
+        )
+    return files
+
+
+def list_figshare_files() -> list[dict]:
+    """File listing for the Figshare article."""
+    payload = _get_json(FIGSHARE_API, "Figshare")
+    if not isinstance(payload, dict):
+        raise DatasetUnavailable("unexpected Figshare response shape")
+    files = [
+        {
+            "name": entry.get("name", "unknown"),
+            "size": int(entry.get("size") or 0),
+            "url": entry.get("download_url"),
+        }
+        for entry in payload.get("files", [])
+        if entry.get("download_url")
+    ]
+    if not files:
+        raise DatasetUnavailable(
+            f"the Figshare API returned no files for article {FIGSHARE_ARTICLE_ID}. "
+            f"Check {FIGSHARE_LANDING} in a browser."
+        )
+    return files
+
+
+def _human(num_bytes: int) -> str:
+    size = float(num_bytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
+def download_file(url: str, destination: Path, expected_size: int = 0) -> Path:
+    """Stream a file to disk with a progress bar, skipping a complete download.
+
+    Writes to a `.part` file and renames on success, so an interrupted download
+    is never mistaken for a finished one on the next run.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists() and (not expected_size or destination.stat().st_size == expected_size):
+        print(f"  already downloaded: {destination.name}")
+        return destination
+
+    partial = destination.with_suffix(destination.suffix + ".part")
+    try:
+        with requests.get(url, stream=True, timeout=REQUEST_TIMEOUT) as response:
+            response.raise_for_status()
+            total = int(response.headers.get("content-length") or expected_size or 0)
+            with open(partial, "wb") as handle, tqdm(
+                total=total or None,
+                unit="B",
+                unit_scale=True,
+                desc=f"  {destination.name}",
+                leave=False,
+            ) as bar:
+                for chunk in response.iter_content(chunk_size=1 << 20):
+                    handle.write(chunk)
+                    bar.update(len(chunk))
+    except requests.exceptions.RequestException as exc:
+        partial.unlink(missing_ok=True)
+        raise DatasetUnavailable(f"download failed for {url}: {exc}") from exc
+
+    partial.replace(destination)
+    print(f"  downloaded {destination.name} ({_human(destination.stat().st_size)})")
+    return destination
+
+
+def extract_archive(archive: Path, target_dir: Path) -> bool:
+    """Unpack a zip/tar archive. Returns False if the file is not an archive."""
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    if zipfile.is_zipfile(archive):
+        with zipfile.ZipFile(archive) as zf:
+            _assert_safe_members(zf.namelist(), archive)
+            zf.extractall(target_dir)
+        print(f"  extracted {archive.name} -> {target_dir}")
+        return True
+
+    if tarfile.is_tarfile(archive):
+        with tarfile.open(archive) as tf:
+            _assert_safe_members(tf.getnames(), archive)
+            # `filter="data"` blocks absolute paths, device files and symlink
+            # escapes; it is the default from Python 3.14 and explicit here.
+            tf.extractall(target_dir, filter="data")
+        print(f"  extracted {archive.name} -> {target_dir}")
+        return True
+
+    return False
+
+
+def _assert_safe_members(names: list[str], archive: Path) -> None:
+    """Reject archives whose entries would write outside the target directory."""
+    for name in names:
+        path = Path(name)
+        if path.is_absolute() or ".." in path.parts:
+            raise DatasetUnavailable(
+                f"refusing to extract '{archive.name}': entry '{name}' would write "
+                f"outside the target directory."
+            )
+
+
+def fetch_source(name: str, lister, target_dir: Path, list_only: bool) -> None:
+    """List, download and unpack one dataset source."""
+    print(f"\n=== {name} ===")
+    files = lister()
+    total = sum(f["size"] for f in files)
+    print(f"{len(files)} file(s), {_human(total)} total")
+    for entry in files:
+        print(f"  - {entry['name']:<55} {_human(entry['size']):>10}")
+
+    if list_only:
+        return
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for entry in files:
+        archive = download_file(entry["url"], DOWNLOAD_DIR / entry["name"], entry["size"])
+        if not extract_archive(archive, target_dir):
+            # A loose image rather than an archive: copy it across as-is.
+            shutil.copy2(archive, target_dir / archive.name)
+            print(f"  copied {archive.name} -> {target_dir}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Manual download (if this machine cannot reach the hosts):\n"
+            f"  1. Open {MENDELEY_LANDING}\n"
+            f"     and {FIGSHARE_LANDING}\n"
+            "  2. Download the archives from each page.\n"
+            "  3. Unzip them into data/raw/mendeley_foot/ and data/raw/figshare_nail/.\n"
+            "  4. Run: python src/inspect_data.py\n"
+        ),
+    )
+    parser.add_argument(
+        "--source",
+        choices=["mendeley", "figshare", "both"],
+        default="both",
+        help="which dataset to fetch (default: both)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_only",
+        help="show the available files and exit without downloading",
+    )
+    args = parser.parse_args()
+
+    config.ensure_dirs()
+    sources = {
+        "mendeley": ("Mendeley Data hsj38fwnvr (foot)", list_mendeley_files, config.RAW_DIR / "mendeley_foot"),
+        "figshare": (f"Figshare {FIGSHARE_ARTICLE_ID} (onychomycosis / nail)", list_figshare_files, config.RAW_DIR / "figshare_nail"),
+    }
+    selected = list(sources) if args.source == "both" else [args.source]
+
+    failures = []
+    for key in selected:
+        label, lister, target = sources[key]
+        try:
+            fetch_source(label, lister, target, args.list_only)
+        except DatasetUnavailable as exc:
+            print(f"\n[FAILED] {label}\n{exc}", file=sys.stderr)
+            failures.append(key)
+
+    if failures:
+        print(
+            f"\n{len(failures)} of {len(selected)} source(s) failed. "
+            f"Use the manual steps in `--help` for those, then run "
+            f"`python src/inspect_data.py`.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not args.list_only:
+        print("\nDownload complete. Next: python src/inspect_data.py")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
