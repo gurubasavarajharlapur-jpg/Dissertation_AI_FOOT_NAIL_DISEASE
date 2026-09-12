@@ -202,6 +202,51 @@ def clean(frame: pd.DataFrame, log: StepLog) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# 2b. CAP
+# ---------------------------------------------------------------------------
+def cap_sources(frame: pd.DataFrame, log: StepLog) -> pd.DataFrame:
+    """Limit how many images any one source folder contributes.
+
+    Sampling is spread evenly across groups rather than taken in filename order.
+    Taking the first N tiles would draw them all from the first one or two
+    montage sheets, collapsing the already-limited session diversity to almost
+    nothing while appearing to keep a healthy sample size.
+    """
+    if not config.MAX_IMAGES_PER_SOURCE:
+        return frame
+
+    rng = np.random.default_rng(config.RANDOM_SEED)
+    frame = frame.copy()
+    if "group" not in frame.columns:
+        frame["group"] = [_group_key(r) for r in frame.itertuples()]
+
+    keep_index: list = []
+    for source, subset in frame.groupby("source"):
+        cap = next(
+            (c for marker, c in config.MAX_IMAGES_PER_SOURCE.items() if marker in source),
+            None,
+        )
+        if cap is None or len(subset) <= cap:
+            keep_index.extend(subset.index)
+            continue
+
+        # Round-robin over groups: take one image from each in turn, so every
+        # sheet contributes before any sheet contributes twice.
+        by_group = {g: list(rng.permutation(idx.to_numpy()))
+                    for g, idx in subset.groupby("group").groups.items()}
+        chosen: list = []
+        while len(chosen) < cap and any(by_group.values()):
+            for bucket in by_group.values():
+                if bucket and len(chosen) < cap:
+                    chosen.append(bucket.pop())
+        keep_index.extend(chosen)
+        log.record(f"cap: {source[:28]}", len(chosen), len(subset) - len(chosen),
+                   f"capped at {cap}, spread over {len(by_group)} group(s)")
+
+    return frame.loc[sorted(keep_index)].reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
 # 3-5. CROP / CONVERT / RESIZE
 # ---------------------------------------------------------------------------
 def crop_black_padding(image: Image.Image, threshold: int) -> Image.Image:
@@ -409,6 +454,7 @@ def main() -> int:
     print()
 
     frame = clean(frame, log)
+    frame = cap_sources(frame, log)
     frame = stratified_group_split(frame, log)
 
     if args.dry_run:

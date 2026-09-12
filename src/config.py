@@ -113,6 +113,24 @@ LEAF_FOLDER_TO_CLASS: dict[str, str | None] = {
 # ulcer" and score near-perfectly without learning anything about ulcers.
 # Images from these sources are cropped back to their non-black content.
 CROP_BLACK_BORDERS = ("ulcer_fuseg",)
+
+# Per-source ceilings on how many images one raw folder may contribute.
+#
+# Tiling the montage sheets yields ~18,000 healthy nail images against 780
+# onychomycosis images. Uncapped, "healthy" would be 81% of the dataset (a
+# model predicting it every time scores 81% accuracy) and 87% of that class
+# would be nails, drowning the healthy-foot signal.
+#
+# The count also overstates what is actually there: the tiles come from roughly
+# 20 sheets, so they represent about 20 photographic sessions rather than 18,000
+# independent observations. Capping near the 780 onychomycosis images keeps the
+# nail comparison balanced and reflects the real diversity of the source.
+#
+# Sampling is spread evenly across sheets, never taken in filename order, so a
+# cap does not silently reduce the data to one or two sessions.
+MAX_IMAGES_PER_SOURCE: dict[str, int] = {
+    "figshare_nail_tiles": 1000,
+}
 # A pixel at or below this intensity counts as padding rather than dark tissue.
 BLACK_THRESHOLD = 12
 

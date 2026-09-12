@@ -87,3 +87,39 @@ the class (`normalnail`, `naildystrophy`, `-focus`). **Resolved:**
 `src/extract_montages.py` tiles the `normalnail` sheets into individual healthy
 nail images, which join the Healthy Foot/Nail class alongside the Mendeley
 whole-foot photographs.
+
+## Dataset limitations to state in the dissertation
+
+These are properties of the source data, not of the implementation. Each should
+appear in the limitations section and be ready to defend at viva.
+
+**Healthy nail images come from ~20 photographic sessions.** Tiling the montage
+sheets produced 18,096 images, but they were cut from roughly 20 sheets. They
+therefore represent about 20 sessions, and a small number of individuals, rather
+than 18,096 independent observations. The split groups tiles by sheet so none
+straddles the train/test boundary, but no grouping can create diversity the
+source does not contain. The contribution is capped at 1,000 images
+(`config.MAX_IMAGES_PER_SOURCE`), sampled evenly across every sheet.
+
+**Uncapped, the Healthy class would dominate.** 20,853 of 25,689 images, or 81%
+— a model predicting "healthy" every time would score 81% accuracy — and 87% of
+that class would be nails, drowning the healthy-foot signal. After capping the
+imbalance is roughly 4.8:1, handled with class weighting.
+
+**Resolution correlates with class among the nail images.** Healthy nails are
+102x102 tiles upscaled to 224x224; onychomycosis images are several hundred
+pixels, downscaled. Sharpness is therefore a cue the model could exploit instead
+of pathology. Randomised blur augmentation
+(`config.AUGMENTATION["blur_factor"]`) removes it as a reliable signal, and
+Grad-CAM is used to check where the model actually attends.
+
+**Class is partly confounded with source.** Each class is drawn predominantly
+from one dataset, so acquisition conditions differ systematically between
+classes. The informative comparisons are those *within* a source — healthy foot
+vs wound (both Mendeley), and healthy nail vs onychomycosis (both Figshare) —
+and these appear as blocks in the confusion matrix.
+
+**The nail images are largely fingernails.** The proposal's class is "Nail
+Fungal Infection" rather than toenail specifically, but onychomycosis in the
+agricultural population this project targets is predominantly a toenail
+condition. Transfer to toenails is not demonstrated by this data.
