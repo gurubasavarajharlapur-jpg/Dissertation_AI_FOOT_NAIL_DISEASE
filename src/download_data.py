@@ -64,13 +64,18 @@ MENDELEY_BULK_ZIP = (
 
 # Both hosts reject requests that do not look like a browser, returning 403 with
 # no explanation. Sending a normal User-Agent is enough to be served.
-HTTP_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/plain, */*",
-}
+USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0 Safari/537.36"
+)
+
+# Metadata endpoints return JSON.
+API_HEADERS = {"User-Agent": USER_AGENT, "Accept": "application/json, text/plain, */*"}
+
+# File downloads must NOT advertise a JSON preference: asking a download
+# endpoint for application/json can get an empty body back instead of the
+# archive, which is what silently produced three 0-byte "downloads".
+DOWNLOAD_HEADERS = {"User-Agent": USER_AGENT, "Accept": "*/*"}
 
 FIGSHARE_ARTICLE_ID = 5398573
 FIGSHARE_API = f"https://api.figshare.com/v2/articles/{FIGSHARE_ARTICLE_ID}"
@@ -87,7 +92,7 @@ class DatasetUnavailable(RuntimeError):
 def _get_json(url: str, what: str) -> dict | list:
     """GET a JSON endpoint, turning network failures into an actionable error."""
     try:
-        response = requests.get(url, timeout=REQUEST_TIMEOUT, headers=HTTP_HEADERS)
+        response = requests.get(url, timeout=REQUEST_TIMEOUT, headers=API_HEADERS)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as exc:
@@ -141,7 +146,7 @@ def _list_mendeley_bulk() -> list[dict]:
     """
     try:
         response = requests.head(
-            MENDELEY_BULK_ZIP, timeout=REQUEST_TIMEOUT, headers=HTTP_HEADERS,
+            MENDELEY_BULK_ZIP, timeout=REQUEST_TIMEOUT, headers=DOWNLOAD_HEADERS,
             allow_redirects=True,
         )
         response.raise_for_status()
@@ -232,7 +237,7 @@ def download_file(url: str, destination: Path, expected_size: int = 0) -> Path:
     partial = destination.with_suffix(destination.suffix + ".part")
     try:
         with requests.get(
-            url, stream=True, timeout=REQUEST_TIMEOUT, headers=HTTP_HEADERS
+            url, stream=True, timeout=REQUEST_TIMEOUT, headers=DOWNLOAD_HEADERS
         ) as response:
             response.raise_for_status()
             total = int(response.headers.get("content-length") or expected_size or 0)
@@ -249,6 +254,24 @@ def download_file(url: str, destination: Path, expected_size: int = 0) -> Path:
     except requests.exceptions.RequestException as exc:
         partial.unlink(missing_ok=True)
         raise DatasetUnavailable(f"download failed for {url}: {exc}") from exc
+
+    # Check the bytes before accepting them. A request that returns an empty or
+    # truncated body otherwise renames cleanly, fails to unzip, gets copied
+    # verbatim, and reports "Download complete" over an empty dataset.
+    got = partial.stat().st_size
+    if got == 0:
+        partial.unlink(missing_ok=True)
+        raise DatasetUnavailable(
+            f"'{destination.name}' downloaded as 0 bytes from {url}\n"
+            f"  The server accepted the request but sent no content. Download the\n"
+            f"  dataset manually (see --help) and unzip it into data/raw/."
+        )
+    if expected_size and abs(got - expected_size) > max(1024, expected_size * 0.01):
+        partial.unlink(missing_ok=True)
+        raise DatasetUnavailable(
+            f"'{destination.name}' is {_human(got)} but the API reported "
+            f"{_human(expected_size)}.\n  The transfer was truncated; re-run to retry."
+        )
 
     partial.replace(destination)
     print(f"  downloaded {destination.name} ({_human(destination.stat().st_size)})")
@@ -305,6 +328,12 @@ def fetch_source(name: str, lister, target_dir: Path, list_only: bool) -> None:
     for entry in files:
         archive = download_file(entry["url"], DOWNLOAD_DIR / entry["name"], entry["size"])
         if not extract_archive(archive, target_dir):
+            if archive.suffix.lower() in {".zip", ".tar", ".gz", ".tgz"}:
+                raise DatasetUnavailable(
+                    f"'{archive.name}' has an archive extension but is not a readable "
+                    f"zip or tar.\n  The download is corrupt; delete "
+                    f"{DOWNLOAD_DIR / archive.name} and re-run."
+                )
             # A loose image rather than an archive: copy it across as-is.
             shutil.copy2(archive, target_dir / archive.name)
             print(f"  copied {archive.name} -> {target_dir}")
@@ -363,7 +392,16 @@ def main() -> int:
         return 1
 
     if not args.list_only:
-        print("\nDownload complete. Next: python src/inspect_data.py")
+        images = sum(
+            1
+            for p in config.RAW_DIR.rglob("*")
+            if p.is_file() and p.suffix.lower() in config.VALID_EXTENSIONS
+        )
+        print(f"\nDownload complete: {images} image(s) now under {config.RAW_DIR}")
+        if images == 0:
+            print("  ...but no images were produced. Check the output above.", file=sys.stderr)
+            return 1
+        print("Next: python src/inspect_data.py")
     return 0
 
 
