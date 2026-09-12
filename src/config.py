@@ -74,6 +74,49 @@ CLASS_TO_INDEX: dict[str, int] = {name: i for i, name in enumerate(CLASS_NAMES)}
 INDEX_TO_CLASS: dict[int, str] = {i: name for name, i in CLASS_TO_INDEX.items()}
 
 # ---------------------------------------------------------------------------
+# Source folder -> project class mapping
+# ---------------------------------------------------------------------------
+# Decided by hand after reading the src/inspect_data.py report, never inferred
+# from folder names. Keys are path fragments matched against each image's path
+# under data/raw/; the first match wins, so more specific patterns come first.
+# A value of None means "recognised but deliberately excluded", which keeps the
+# exclusion explicit and auditable rather than silent.
+FOLDER_TO_CLASS: dict[str, str | None] = {
+    # --- Mendeley hsj38fwnvr v3 (whole-foot photographs) -------------------
+    "mendeley_foot/Normal": "healthy",
+    "mendeley_foot/wound_main": "foot_wound",
+
+    # --- FUSeg / AZH chronic wound (Wang et al., 2020) --------------------
+    # Every image in this dataset is a foot ulcer; the split sub-folders are
+    # the publisher's own segmentation-challenge splits, not ours.
+    "ulcer_fuseg": "foot_ulcer",
+
+    # --- Figshare 5398573, per-image folders ------------------------------
+    "figshare_nail/datasets (B1, B2, C, D, E)": None,  # overridden below
+    # --- Figshare 5398573, tiles recovered from the montage sheets --------
+    "figshare_nail_tiles/healthy": "healthy",
+}
+
+# Checked before FOLDER_TO_CLASS so the Figshare per-image sub-folders resolve
+# correctly regardless of which parent pattern would otherwise match.
+LEAF_FOLDER_TO_CLASS: dict[str, str | None] = {
+    "onychomycosis": "nail_fungal",
+    # Nail dystrophy is a real condition but not one of the four classes fixed
+    # by the proposal (Methods; 5.4), so it is excluded rather than reassigned.
+    "naildystrophy": None,
+}
+
+# Sources whose images are letterboxed onto a black background. The FUSeg and
+# Medetec ulcer images were cropped to the wound and zero-padded to square by
+# their publishers, leaving 25-32% of every image pure black — a marking no
+# other class carries. Left in place, a model would learn "black border =>
+# ulcer" and score near-perfectly without learning anything about ulcers.
+# Images from these sources are cropped back to their non-black content.
+CROP_BLACK_BORDERS = ("ulcer_fuseg",)
+# A pixel at or below this intensity counts as padding rather than dark tissue.
+BLACK_THRESHOLD = 12
+
+# ---------------------------------------------------------------------------
 # Image settings
 # ---------------------------------------------------------------------------
 # 224x224 is the resolution MobileNetV2 and ResNet50 were pretrained on at
@@ -177,6 +220,12 @@ AUGMENTATION = {
     # Lighting differs between clinics; kept small to preserve diagnostic hue.
     "brightness_factor": 0.15,
     "contrast_factor": 0.15,
+    # Healthy nail images come from ~102px montage tiles and are upscaled to
+    # 224, while the onychomycosis images are downscaled from several hundred
+    # pixels. Sharpness therefore correlates with class, and a model can exploit
+    # that instead of learning pathology. Randomised blur removes it as a
+    # reliable cue. Set to 0.0 to disable.
+    "blur_factor": 0.25,
 }
 
 # ---------------------------------------------------------------------------
@@ -219,6 +268,15 @@ def validate() -> None:
     missing = set(MODEL_NAMES) - set(FINETUNE_LAYERS)
     if missing:
         raise ValueError(f"FINETUNE_LAYERS is missing an entry for: {sorted(missing)}")
+
+    for name, mapping in (("FOLDER_TO_CLASS", FOLDER_TO_CLASS),
+                          ("LEAF_FOLDER_TO_CLASS", LEAF_FOLDER_TO_CLASS)):
+        bad = {k: v for k, v in mapping.items() if v is not None and v not in CLASS_NAMES}
+        if bad:
+            raise ValueError(
+                f"{name} maps to labels that are not in CLASS_NAMES: {bad}. "
+                f"valid classes: {CLASS_NAMES}"
+            )
 
 
 validate()
