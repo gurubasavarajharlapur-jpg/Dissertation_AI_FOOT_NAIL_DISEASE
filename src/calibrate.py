@@ -74,19 +74,30 @@ def apply_temperature(logits: np.ndarray, temperature: float) -> np.ndarray:
     return exponentiated / exponentiated.sum(axis=1, keepdims=True)
 
 
-def fit_temperature(logits: np.ndarray, y_true: np.ndarray) -> float:
+def fit_temperature(logits: np.ndarray, y_true: np.ndarray) -> tuple[float, bool]:
     """Temperature minimising validation NLL.
 
     T > 1 softens overconfident predictions; T < 1 sharpens underconfident ones.
     One parameter, so it cannot overfit the validation split in any meaningful
     sense, which is what makes this the standard choice.
+
+    Returns (temperature, hit_bound). See below for why the second matters.
     """
     def nll(temperature: float) -> float:
         probs = apply_temperature(logits, temperature)
         return float(-np.mean(np.log(probs[np.arange(len(y_true)), y_true] + EPS)))
 
-    result = minimize_scalar(nll, bounds=(0.05, 10.0), method="bounded")
-    return float(result.x)
+    lower, upper = 0.05, 10.0
+    result = minimize_scalar(nll, bounds=(lower, upper), method="bounded")
+    temperature = float(result.x)
+
+    # Hitting a bound means the optimiser wanted to go further, which happens
+    # when validation accuracy is so near perfect that the likelihood keeps
+    # improving as confidence is pushed to 1. The fitted value is then an
+    # artefact of the bound rather than a property of the model, and the caller
+    # is told so instead of being handed a number that looks meaningful.
+    at_bound = temperature <= lower * 1.01 or temperature >= upper * 0.99
+    return temperature, at_bound
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +265,20 @@ def calibrate_one(model_name: str) -> dict:
     ece_before, detail_before = expected_calibration_error(
         val_probs, val_true, config.CALIBRATION_BINS
     )
-    temperature = fit_temperature(logits, val_true)
+    # ECE is a binned statistic: with few samples per occupied bin the estimate
+    # is dominated by noise, and can move in either direction after a fit that
+    # genuinely improved calibration. Say so rather than letting a spurious
+    # change be read as a result.
+    occupied = [d for d in detail_before if d["count"]]
+    per_bin = len(val_true) / max(len(occupied), 1)
+    if per_bin < 30:
+        print(
+            f"  NOTE: {len(val_true)} validation images across {len(occupied)} occupied "
+            f"bins is ~{per_bin:.0f} per bin.\n  ECE is unreliable at that density and "
+            f"small changes in it should not be interpreted."
+        )
+    val_accuracy = float(np.mean(val_probs.argmax(1) == val_true))
+    temperature, at_bound = fit_temperature(logits, val_true)
     val_calibrated = apply_temperature(logits, temperature)
     ece_after, detail_after = expected_calibration_error(
         val_calibrated, val_true, config.CALIBRATION_BINS
@@ -263,6 +287,14 @@ def calibrate_one(model_name: str) -> dict:
     print(f"fitted temperature : {temperature:.4f}  "
           f"({'softening overconfident' if temperature > 1 else 'sharpening underconfident'} "
           f"predictions)")
+    if at_bound:
+        print(
+            "  WARNING: the fit hit its bound. Validation accuracy is "
+            f"{val_accuracy:.4f}, high enough that the likelihood keeps improving "
+            "as\n  confidence is pushed towards 1, so this temperature reflects the "
+            "bound rather than\n  the model. Treat the calibrated confidences with "
+            "caution and report the raw ECE too."
+        )
     print(f"validation ECE     : {ece_before:.4f} -> {ece_after:.4f}")
     print(f"mean confidence    : {val_probs.max(axis=1).mean():.4f} -> "
           f"{val_calibrated.max(axis=1).mean():.4f}   "
@@ -288,6 +320,9 @@ def calibrate_one(model_name: str) -> dict:
                               config.SELECTIVE_MIN_COVERAGE)
 
     print(f"\nabstention threshold : {chosen['threshold']:.3f}")
+    if chosen["threshold"] <= 1e-6:
+        print(f"  The model already reaches {config.SELECTIVE_TARGET_ACCURACY} accuracy "
+              f"answering every case, so no abstention is needed on this data.")
     print(f"  on validation      : answers {chosen['coverage']:.1%} of cases at "
           f"{chosen['accuracy']:.4f} accuracy")
     if not chosen["target_met"]:
@@ -310,6 +345,8 @@ def calibrate_one(model_name: str) -> dict:
     summary = {
         "model": model_name,
         "temperature": temperature,
+        "temperature_hit_bound": at_bound,
+        "validation_accuracy": val_accuracy,
         "abstention_threshold": chosen["threshold"],
         "target_accuracy": config.SELECTIVE_TARGET_ACCURACY,
         "min_coverage": config.SELECTIVE_MIN_COVERAGE,
