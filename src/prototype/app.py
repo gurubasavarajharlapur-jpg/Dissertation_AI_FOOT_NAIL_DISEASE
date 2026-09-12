@@ -178,13 +178,16 @@ def screening_tab(model_name: str) -> None:
             )
 
         st.markdown("**All classes**")
+        # Percentages, not the raw 0-1 values: ProgressColumn formats whatever it
+        # is given, so a probability of 0.505 with a "%%" format renders as
+        # "0.5%" directly beneath a headline reading 50.5%.
         st.dataframe(
             pd.DataFrame({
                 "Condition": [config.CLASS_DISPLAY_NAMES[config.CLASS_NAMES[i]] for i in order],
-                "Confidence": [float(probs[i]) for i in order],
+                "Confidence": [float(probs[i]) * 100 for i in order],
             }),
             column_config={"Confidence": st.column_config.ProgressColumn(
-                "Confidence", format="%.1f%%", min_value=0, max_value=1)},
+                "Confidence", format="%.1f%%", min_value=0, max_value=100)},
             hide_index=True, use_container_width=True,
         )
 
