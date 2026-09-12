@@ -149,31 +149,64 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray) 
     return result
 
 
+def _time_inference(model: keras.Model, device: str, runs: int) -> dict | None:
+    """Median single-image latency on one device, or None if unavailable."""
+    sample = np.random.rand(1, *config.INPUT_SHAPE).astype("float32") * 255
+    try:
+        with tf.device(device):
+            for _ in range(5):  # warm up: the first calls include graph tracing
+                model(sample, training=False)
+            timings = []
+            for _ in range(runs):
+                start = time.perf_counter()
+                model(sample, training=False)
+                timings.append((time.perf_counter() - start) * 1000)
+    except (RuntimeError, tf.errors.InvalidArgumentError):
+        return None
+    return {
+        "mean": round(float(np.mean(timings)), 2),
+        "median": round(float(np.median(timings)), 2),
+        "p95": round(float(np.percentile(timings, 95)), 2),
+    }
+
+
 def measure_efficiency(model: keras.Model, model_name: str, runs: int = 50) -> dict:
-    """Parameters, on-disk size and single-image latency.
+    """Parameters, on-disk size and single-image latency on both CPU and GPU.
 
     Batch size 1 is measured deliberately: the deployment story is one photo at
     a time on a health worker's phone, not a batched server workload.
+
+    Both devices are timed because they rank the architectures differently.
+    MobileNetV2's depthwise separable convolutions cut parameters and FLOPs but
+    leave a GPU's dense-matrix hardware underused, so on a GPU it can be the
+    slower of the two despite being an order of magnitude smaller. CPU latency
+    is the figure that speaks to running on a phone, and reporting only the GPU
+    number would argue against the deployment case the model size supports.
     """
     path = config.model_path(model_name)
-    sample = np.random.rand(1, *config.INPUT_SHAPE).astype("float32") * 255
-
-    for _ in range(5):  # warm up: the first calls include graph tracing
-        model.predict(sample, verbose=0)
-
-    timings = []
-    for _ in range(runs):
-        start = time.perf_counter()
-        model.predict(sample, verbose=0)
-        timings.append((time.perf_counter() - start) * 1000)
-
-    return {
+    result = {
         "total_parameters": int(model.count_params()),
         "model_size_mb": round(path.stat().st_size / 1e6, 2),
-        "inference_ms_mean": round(float(np.mean(timings)), 2),
-        "inference_ms_median": round(float(np.median(timings)), 2),
-        "inference_ms_p95": round(float(np.percentile(timings, 95)), 2),
     }
+
+    cpu = _time_inference(model, "/CPU:0", runs)
+    if cpu:
+        result["inference_ms_cpu_median"] = cpu["median"]
+        result["inference_ms_cpu_p95"] = cpu["p95"]
+
+    if tf.config.list_physical_devices("GPU"):
+        gpu = _time_inference(model, "/GPU:0", runs)
+        if gpu:
+            result["inference_ms_gpu_median"] = gpu["median"]
+            result["inference_ms_gpu_p95"] = gpu["p95"]
+
+    # The headline latency is CPU where measured: it is the device a rural
+    # deployment actually resembles.
+    result["inference_ms_median"] = result.get(
+        "inference_ms_cpu_median", result.get("inference_ms_gpu_median", float("nan"))
+    )
+    result["inference_device"] = "cpu" if "inference_ms_cpu_median" in result else "gpu"
+    return result
 
 
 def within_source_summary(frame: pd.DataFrame, y_true: np.ndarray, y_pred: np.ndarray) -> dict:
@@ -265,9 +298,14 @@ def plot_comparison(summaries: dict[str, dict]) -> Path | None:
                 ylim=(0, 1.08), title="Test performance")
     axes[0].legend()
 
+    latency_key = ("inference_ms_cpu_median"
+                   if all("inference_ms_cpu_median" in summaries[n]["efficiency"] for n in names)
+                   else "inference_ms_median")
+    latency_label = "Inference time, CPU (1 image)" if latency_key.endswith("cpu_median") \
+        else "Inference time (1 image)"
     for ax, key, title, unit in (
         (axes[1], "model_size_mb", "Model size", "MB"),
-        (axes[2], "inference_ms_median", "Inference time (1 image)", "ms"),
+        (axes[2], latency_key, latency_label, "ms"),
     ):
         values = [summaries[n]["efficiency"][key] for n in names]
         bars = ax.bar(names, values, color=["#4C72B0", "#DD8452"][: len(names)])
@@ -420,10 +458,15 @@ def print_model_report(model_name: str, metrics: dict, efficiency: dict,
     print(f"Cohen's kappa     : {metrics['cohen_kappa']:.4f}")
     if "macro_auc" in metrics:
         print(f"Macro AUC (OvR)   : {metrics['macro_auc']:.4f}")
+    latency = []
+    if "inference_ms_cpu_median" in efficiency:
+        latency.append(f"CPU {efficiency['inference_ms_cpu_median']} ms")
+    if "inference_ms_gpu_median" in efficiency:
+        latency.append(f"GPU {efficiency['inference_ms_gpu_median']} ms")
     print(
         f"\nParameters {efficiency['total_parameters']:,} | "
         f"size {efficiency['model_size_mb']} MB | "
-        f"inference {efficiency['inference_ms_median']} ms/image (median)"
+        f"inference per image: {', '.join(latency)}"
     )
 
     print("\nConfusion matrix (rows = true, columns = predicted):")
@@ -447,7 +490,8 @@ def print_comparison(summaries: dict[str, dict]) -> pd.DataFrame:
             "balanced_accuracy": round(m["balanced_accuracy"], 4),
             "parameters": e["total_parameters"],
             "size_mb": e["model_size_mb"],
-            "inference_ms": e["inference_ms_median"],
+            "inference_ms_cpu": e.get("inference_ms_cpu_median"),
+            "inference_ms_gpu": e.get("inference_ms_gpu_median"),
         })
     table = pd.DataFrame(rows)
 
@@ -461,13 +505,26 @@ def print_comparison(summaries: dict[str, dict]) -> pd.DataFrame:
         other = table[table["model"] != config.PRIMARY_MODEL]
         if not primary.empty and not other.empty:
             p, o = primary.iloc[0], other.iloc[0]
-            print(
+            message = (
                 f"\n{o['model']} is {o['accuracy'] - p['accuracy']:+.4f} accuracy "
                 f"({(o['accuracy'] - p['accuracy']) * 100:+.2f} points) over {p['model']},\n"
-                f"for {o['parameters'] / p['parameters']:.1f}x the parameters, "
-                f"{o['size_mb'] / p['size_mb']:.1f}x the size and "
-                f"{o['inference_ms'] / p['inference_ms']:.1f}x the inference time."
+                f"for {o['parameters'] / p['parameters']:.1f}x the parameters and "
+                f"{o['size_mb'] / p['size_mb']:.1f}x the on-disk size."
             )
+            if p.get("inference_ms_cpu") and o.get("inference_ms_cpu"):
+                message += (
+                    f"\nOn CPU — the device a phone resembles — {o['model']} takes "
+                    f"{o['inference_ms_cpu'] / p['inference_ms_cpu']:.1f}x as long "
+                    f"({o['inference_ms_cpu']} ms vs {p['inference_ms_cpu']} ms)."
+                )
+            if p.get("inference_ms_gpu") and o.get("inference_ms_gpu"):
+                message += (
+                    f"\nOn GPU the ordering differs ({o['inference_ms_gpu']} ms vs "
+                    f"{p['inference_ms_gpu']} ms): depthwise separable convolutions cut "
+                    f"FLOPs\nbut underuse dense-matrix hardware, so the lighter model's "
+                    f"advantage is a CPU one."
+                )
+            print(message)
     return table
 
 

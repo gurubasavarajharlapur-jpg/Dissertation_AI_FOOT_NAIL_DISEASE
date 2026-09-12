@@ -312,7 +312,20 @@ def _group_key(row) -> str:
 
 
 def stratified_group_split(frame: pd.DataFrame, log: StepLog) -> pd.DataFrame:
-    """Assign each row to train/val/test, stratified by class, grouped by source image."""
+    """Assign each row to train/val/test, grouped by source image.
+
+    Stratified by class AND by source dataset, not class alone. Stratifying on
+    class only allowed an entire sub-population to be confined to one split: the
+    montage tiles arrive as ~20 groups of ~50 images each, far larger than the
+    single-image groups around them, so a largest-first assignment sent every
+    one of them to training and left the test set with no healthy nail images at
+    all. Performance on precisely the category the tiles were extracted to
+    provide then went unmeasured.
+
+    Splitting within each (class, source) pair guarantees every source appears
+    in every split in the intended proportions, which also makes the per-source
+    breakdown in evaluation meaningful.
+    """
     rng = np.random.default_rng(config.RANDOM_SEED)
     frame = frame.copy()
     frame["group"] = [_group_key(r) for r in frame.itertuples()]
@@ -320,8 +333,7 @@ def stratified_group_split(frame: pd.DataFrame, log: StepLog) -> pd.DataFrame:
     targets = {"train": config.TRAIN_SPLIT, "val": config.VAL_SPLIT, "test": config.TEST_SPLIT}
     assignment: dict[str, str] = {}
 
-    for label in sorted(frame["label"].unique()):
-        subset = frame[frame["label"] == label]
+    for (label, source), subset in frame.groupby(["label", "source"], sort=True):
         sizes = subset.groupby("group").size().to_dict()
         groups = sorted(sizes)
         rng.shuffle(groups)
@@ -416,6 +428,18 @@ def verify(processed: pd.DataFrame, log: StepLog) -> dict:
         if missing:
             problems.append(f"split '{split}' has no examples of {sorted(missing)}")
 
+    # A source confined to one split leaves its sub-population unmeasured, which
+    # is how the test set ended up containing no healthy nail images.
+    all_sources = set(processed["source"])
+    for split in SPLITS:
+        present = set(processed[processed["split"] == split]["source"])
+        missing = all_sources - present
+        if missing:
+            problems.append(
+                f"split '{split}' contains nothing from source(s) {sorted(missing)} — "
+                f"performance on those images would go unmeasured"
+            )
+
     sizes = Counter()
     for path in processed["path"].head(200):
         with Image.open(config.PROJECT_ROOT / path) as img:  # absolute paths pass through
@@ -507,6 +531,12 @@ def main() -> int:
 
     table = distribution_table(processed)
     table.to_csv(config.METRICS_DIR / "class_distribution.csv", index=False)
+
+    source_table = (
+        processed.groupby(["label", "source", "split"]).size()
+        .unstack(fill_value=0).reindex(columns=list(SPLITS), fill_value=0).reset_index()
+    )
+    source_table.to_csv(config.METRICS_DIR / "split_by_source.csv", index=False)
     (config.METRICS_DIR / "preprocessing_log.json").write_text(
         json.dumps({"steps": log.steps, "stats": stats,
                     "seed": config.RANDOM_SEED,
@@ -517,6 +547,11 @@ def main() -> int:
     print("FINAL CLASS DISTRIBUTION")
     print("=" * 64)
     print(table.to_string(index=False))
+
+    print("\n" + "=" * 64)
+    print("SPLIT BY CLASS AND SOURCE")
+    print("=" * 64)
+    print(source_table.to_string(index=False))
 
     counts = table[table["class"] != "TOTAL"]["total"]
     print(f"\nimbalance ratio (largest : smallest) = {counts.max() / max(counts.min(), 1):.1f} : 1")
