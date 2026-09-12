@@ -358,9 +358,25 @@ def _repo_relative(path: Path) -> str:
         return path.as_posix()
 
 
+def _clear_output_dir(out_root: Path) -> None:
+    """Empty the output directory without destroying it.
+
+    On Colab this path is typically a symlink into Google Drive, and rmtree
+    refuses to follow one. Clearing the contents keeps the link (and therefore
+    the persistence across runtime restarts) intact.
+    """
+    if not out_root.exists():
+        out_root.mkdir(parents=True, exist_ok=True)
+        return
+    for child in out_root.iterdir():
+        if child.is_dir() and not child.is_symlink():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+
 def write_processed(frame: pd.DataFrame, out_root: Path, log: StepLog) -> pd.DataFrame:
-    if out_root.exists():
-        shutil.rmtree(out_root)
+    _clear_output_dir(out_root)
     records, failures = [], 0
 
     for row in tqdm(frame.itertuples(), total=len(frame), desc="  writing", unit="img"):
@@ -452,6 +468,23 @@ def main() -> int:
     for label, count in frame["label"].value_counts().items():
         print(f"      {label:<14} {count:>6}")
     print()
+
+    missing = [c for c in config.CLASS_NAMES if (frame["label"] == c).sum() == 0]
+    if missing:
+        raise SystemExit(
+            f"\nNo images mapped to: {missing}\n"
+            f"Only {sorted(frame['label'].unique())} were found, from "
+            f"{sorted(frame['source'].unique())}.\n\n"
+            f"On Colab this usually means Google Drive has not finished mounting —\n"
+            f"large directories are listed lazily, so data/raw can look partly\n"
+            f"empty for several minutes after drive.mount(). Check with:\n"
+            f"    !ls /content/drive/MyDrive/dissertation_foot_nail/data/raw\n"
+            f"    !find /content/drive/MyDrive/dissertation_foot_nail/data/raw "
+            f"-type f | wc -l\n"
+            f"and re-run once the counts look right.\n\n"
+            f"Otherwise check config.FOLDER_TO_CLASS against the folder names "
+            f"reported by src/inspect_data.py."
+        )
 
     frame = clean(frame, log)
     frame = cap_sources(frame, log)
