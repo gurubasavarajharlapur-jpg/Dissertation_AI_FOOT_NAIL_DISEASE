@@ -214,7 +214,11 @@ def screening_tab(model_name: str) -> None:
             )
         else:
             st.success(f"### {config.CLASS_DISPLAY_NAMES[top_name]}")
-            st.metric("Calibrated confidence", f"{confidence:.1%}")
+            # Never display 100%. A rounded 0.9997 shown as certainty overclaims,
+            # and sits badly beside a dissertation section establishing that this
+            # model's confidence needed correcting at all.
+            shown = ">99.9%" if confidence > 0.999 else f"{confidence:.1%}"
+            st.metric("Calibrated confidence", shown)
             st.write(config.CLINICAL_GUIDANCE[top_name])
             st.caption(
                 "Guidance is fixed clinical advice for this class, not a model "
