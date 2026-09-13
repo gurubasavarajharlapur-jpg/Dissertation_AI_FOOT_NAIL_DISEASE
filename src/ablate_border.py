@@ -64,7 +64,70 @@ from sklearn.metrics import accuracy_score, f1_score, recall_score  # noqa: E402
 FILL = 128.0
 
 
+def _decode(path: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
+    image = tf.io.decode_jpeg(tf.io.read_file(path), channels=config.IMAGE_CHANNELS)
+    image = tf.cast(image, tf.float32)
+    image.set_shape((*config.IMAGE_SIZE, config.IMAGE_CHANNELS))
+    return image, label
+
+
+def build_dataset(frame: pd.DataFrame, mask: str, width: int) -> tf.data.Dataset:
+    """Stream the test split, applying one mask on the fly.
+
+    Materialising all 1,248 images as float32 costs ~750MB, and a separate
+    full-size copy per ablation arm pushed a CPU runtime into ~3GB of arrays and
+    made each arm take minutes. Masking inside the pipeline keeps one batch in
+    memory at a time.
+    """
+    paths = [str(config.PROJECT_ROOT / p) for p in frame["path"]]
+    labels = [config.CLASS_TO_INDEX[c] for c in frame["label"]]
+    dataset = (
+        tf.data.Dataset.from_tensor_slices((paths, labels))
+        .map(_decode, num_parallel_calls=tf.data.AUTOTUNE)
+    )
+    if mask != "none":
+        dataset = dataset.map(
+            lambda image, label: (_apply_mask(image, mask, width), label),
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
+    return dataset.batch(config.BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+
+
+def _keep_mask(mask: str, width: int) -> np.ndarray:
+    """(H, W, 1) array: 1 where the pixel survives, 0 where it is replaced."""
+    side = config.IMAGE_SIZE[0]
+    keep = np.ones((side, side, 1), dtype=np.float32)
+    border = np.zeros((side, side, 1), dtype=np.float32)
+    border[:width], border[-width:], border[:, :width], border[:, -width:] = 1, 1, 1, 1
+
+    if mask == "border":
+        return keep - border
+    if mask == "centre":
+        return border
+    if mask == "interior":
+        # Equal AREA to the border ring, but sited inside it, so the two arms
+        # remove the same number of pixels and differ only in location.
+        border_area = side**2 - (side - 2 * width) ** 2
+        outer = side - 2 * width
+        inner = int(round(np.sqrt(max(outer**2 - border_area, 0))))
+        thickness = max((outer - inner) // 2, 1)
+        lo, hi = width, side - width
+        ring = np.zeros((side, side, 1), dtype=np.float32)
+        ring[lo:lo + thickness, lo:hi] = 1
+        ring[hi - thickness:hi, lo:hi] = 1
+        ring[lo:hi, lo:lo + thickness] = 1
+        ring[lo:hi, hi - thickness:hi] = 1
+        return keep - ring
+    raise ValueError(f"unknown mask '{mask}'")
+
+
+def _apply_mask(image: tf.Tensor, mask: str, width: int) -> tf.Tensor:
+    keep = tf.constant(_keep_mask(mask, width))
+    return image * keep + FILL * (1.0 - keep)
+
+
 def load_images(frame: pd.DataFrame) -> np.ndarray:
+    """A handful of images, for the example figure only."""
     return np.stack([
         np.asarray(Image.open(config.PROJECT_ROOT / p).convert("RGB"), dtype=np.float32)
         for p in frame["path"]
@@ -121,8 +184,8 @@ def mask_centre(images: np.ndarray, width: int) -> np.ndarray:
     return out
 
 
-def score(model, images: np.ndarray, y_true: np.ndarray) -> dict:
-    probs = model.predict(images, batch_size=config.BATCH_SIZE, verbose=0)
+def score(model, dataset: tf.data.Dataset, y_true: np.ndarray) -> dict:
+    probs = model.predict(dataset, verbose=0)
     y_pred = probs.argmax(axis=1)
     labels = list(range(config.NUM_CLASSES))
     per_class = recall_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
@@ -157,19 +220,17 @@ def plot_examples(images: np.ndarray, width: int, model_name: str) -> Path:
     return out
 
 
-def run(model_name: str, width: int, frame: pd.DataFrame, images: np.ndarray,
-        y_true: np.ndarray) -> dict:
+def run(model_name: str, width: int, frame: pd.DataFrame, y_true: np.ndarray) -> dict:
     print("\n" + "=" * 74)
     print(f"{model_name.upper()} — BORDER ABLATION ({width}px, {len(y_true)} test images)")
     print("=" * 74)
 
     model = keras.models.load_model(config.model_path(model_name))
-    results = {
-        "baseline": score(model, images, y_true),
-        "border_masked": score(model, mask_border(images, width), y_true),
-        "interior_control": score(model, mask_interior_ring(images, width), y_true),
-        "centre_masked": score(model, mask_centre(images, width), y_true),
-    }
+    results = {}
+    for key, mask in (("baseline", "none"), ("border_masked", "border"),
+                      ("interior_control", "interior"), ("centre_masked", "centre")):
+        print(f"  scoring {key}…", flush=True)
+        results[key] = score(model, build_dataset(frame, mask, width), y_true)
 
     # Predicting the commonest class every time is the floor any result must beat.
     majority = float(pd.Series(y_true).value_counts(normalize=True).max())
@@ -234,7 +295,8 @@ def run(model_name: str, width: int, frame: pd.DataFrame, images: np.ndarray,
     else:
         print("  The border is worth substantially more than a comparable region.")
 
-    figure = plot_examples(images, width, model_name)
+    # One image is enough for the illustration; no need to hold the split.
+    figure = plot_examples(load_images(frame.head(1)), width, model_name)
     print(f"\n  figure -> {figure.relative_to(config.PROJECT_ROOT)}")
 
     summary = {"model": model_name, "border_width_px": width,
@@ -264,8 +326,6 @@ def main() -> int:
 
     frame = pd.read_csv(test_csv)
     y_true = np.array([config.CLASS_TO_INDEX[c] for c in frame["label"]])
-    print(f"Loading {len(frame)} test images…")
-    images = load_images(frame)
 
     targets = config.MODEL_NAMES if args.model == "all" else [args.model]
     available = [n for n in targets if config.model_path(n).exists()]
@@ -276,7 +336,7 @@ def main() -> int:
     for name in available:
         assert_model_matches_split(name)
     for name in available:
-        run(name, args.width, frame, images, y_true)
+        run(name, args.width, frame, y_true)
 
     print(f"\nSaved to {config.METRICS_DIR.relative_to(config.PROJECT_ROOT)}/"
           f"<model>_border_ablation.json")
