@@ -327,3 +327,24 @@ nail case at all.
 3. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. Optional but the highest-value addition
    remaining; check whether ethics approval is required first.
+
+---
+
+## 10. Reproducibility notes
+
+Failure modes that cost real time and are worth a paragraph in the methodology
+or reflection, because each produced a *silent* wrong result rather than an
+error.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Three Figshare zips downloaded as 0 bytes, reporting success | A JSON `Accept` header, then a browser `User-Agent`, on the download request. The default `requests` UA returned the correct 1.8 GB payload. | Send no custom headers on downloads; verify byte size and zip readability before treating a fetch as done. The notebook now also carries a `wget -c` fallback by file ID. |
+| Mendeley zips reported missing from a Drive that had them | Colab's Drive FUSE mount is case-sensitive; the export ships `Normal.zip`, the code looked for `normal.zip`. | Resolve targets against the lower-cased names actually present. |
+| An entire session's outputs lost | Drive FUSE buffers writes; the runtime was recycled before they flushed. | `src/colab_sync.py` writes single tar archives and verifies them, rather than syncing directories. |
+| Test set contained zero healthy nails, unnoticed | Splitting stratified on class alone sent all 20 montage-tile groups to training. | Stratify on class × source; `preprocessing.py --verify` now fails if any source is absent from a split. |
+| Best fine-tuning weights overwritten by worse ones | Stage 2's `ModelCheckpoint` started from no baseline, so its first epoch was "best" even when stage 1 had done better. | Pass stage 1's best `val_loss` as `initial_value_threshold`. |
+| Border ablation "proved" robustness on data where it could not | Masking anything removes information, so a small drop means nothing on its own; and both arms hit chance on a border-only fixture. | Score an equal-area interior control and a centre-masked arm alongside, and detect the floor case explicitly. |
+
+The pattern is consistent: every one of these passed silently. Each fix is
+therefore a *verification* rather than a correction — a size check, a split
+check, a control arm — which is the point worth making in the write-up.
