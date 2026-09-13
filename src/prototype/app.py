@@ -130,21 +130,65 @@ def overlay(image: np.ndarray, cam: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Tab 1: screening
 # ---------------------------------------------------------------------------
+@st.cache_data
+def test_set_index() -> pd.DataFrame:
+    """The test split, for the sample picker. Empty frame if not prepared."""
+    path = config.PROCESSED_DIR / "test.csv"
+    return pd.read_csv(path) if path.exists() else pd.DataFrame(columns=["path", "label"])
+
+
 def screening_tab(model_name: str) -> None:
     calibration = load_calibration(model_name)
     threshold = calibration["abstention_threshold"]
 
-    uploaded = st.file_uploader(
-        "Upload a photograph of a foot or nail",
-        type=["jpg", "jpeg", "png", "bmp", "webp"],
-        key="single",
+    samples = test_set_index()
+    # The file uploader is a browser picker, so it only reaches the viewer's own
+    # machine. When the app runs on Colab the test images are on the server and
+    # unreachable that way, which makes the second option the only practical way
+    # to try a known image without downloading it first.
+    mode = st.radio(
+        "Image source",
+        ["Upload a photograph", "Pick one from the test set"],
+        horizontal=True,
+        disabled=samples.empty,
+        key="source_mode",
     )
-    if uploaded is None:
-        st.info("Upload an image to begin. Any photograph works — a dataset image "
+
+    image = None
+    known_label = None
+
+    if mode == "Upload a photograph" or samples.empty:
+        uploaded = st.file_uploader(
+            "Upload a photograph of a foot or nail",
+            type=["jpg", "jpeg", "png", "bmp", "webp"],
+            key="single",
+        )
+        if uploaded is not None:
+            image = Image.open(uploaded)
+    else:
+        pick_class = st.selectbox(
+            "Class",
+            config.CLASS_NAMES,
+            format_func=lambda c: config.CLASS_DISPLAY_NAMES[c],
+            key="sample_class",
+        )
+        subset = samples[samples["label"] == pick_class].reset_index(drop=True)
+        if subset.empty:
+            st.warning(f"No test images for {config.CLASS_DISPLAY_NAMES[pick_class]}.")
+            return
+        index = st.slider("Image", 0, len(subset) - 1, 0, key="sample_index")
+        row = subset.iloc[index]
+        image = Image.open(config.PROJECT_ROOT / row["path"])
+        known_label = pick_class
+        st.caption(f"{Path(row['path']).name}  —  true class: "
+                   f"**{config.CLASS_DISPLAY_NAMES[pick_class]}**  "
+                   f"({index + 1} of {len(subset)})")
+
+    if image is None:
+        st.info("Choose an image to begin. Any photograph works — a dataset image "
                 "or one taken on your phone.")
         return
 
-    image = Image.open(uploaded)
     array = prepare(image)
     model = load_model(model_name)
     probs = predict(model, array, calibration["temperature"])
@@ -176,6 +220,17 @@ def screening_tab(model_name: str) -> None:
                 "Guidance is fixed clinical advice for this class, not a model "
                 "assessment of severity. The model classifies appearance only."
             )
+
+        if known_label is not None:
+            if known_label == top_name and not abstain:
+                st.caption(f"Correct — the true class is "
+                           f"{config.CLASS_DISPLAY_NAMES[known_label]}.")
+            elif abstain:
+                st.caption(f"Abstained. The true class is "
+                           f"{config.CLASS_DISPLAY_NAMES[known_label]}.")
+            else:
+                st.caption(f"Incorrect — the true class is "
+                           f"**{config.CLASS_DISPLAY_NAMES[known_label]}**.")
 
         st.markdown("**All classes**")
         # Percentages, not the raw 0-1 values: ProgressColumn formats whatever it
