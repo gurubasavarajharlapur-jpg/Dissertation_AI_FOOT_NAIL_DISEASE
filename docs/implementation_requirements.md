@@ -44,9 +44,43 @@ commit to addressing them, so they are flagged rather than assumed:
 
 | Gap | Source | Decision |
 |---|---|---|
-| Model interpretability; Grad-CAM named explicitly | 2.5.8 | **In scope.** Grad-CAM saliency maps are produced for test predictions, both to address the gap and to check the model attends to the lesion rather than to dataset artefacts. |
-| External validation on an independent dataset | 2.5.8; 2.5.5 | Out of scope. Listed as future work. |
+| Model interpretability; Grad-CAM named explicitly | 2.5.8 | **Implemented.** Grad-CAM overlays for correct and misclassified test predictions (`src/evaluate.py`), and on every prediction in the prototype. |
+| External validation on an independent dataset | 2.5.8; 2.5.5 | **Supported.** The prototype's batch tab scores independently captured photographs against the test split. Collecting them is the author's step. |
 | Cross-validation | 2.5.5 | Out of scope; not required by the proposal. |
+
+## Additions beyond the proposal
+
+The proposal was submitted and graded before these were added, and the author
+approved them explicitly. They are recorded here so that nothing in the
+implementation is untraceable.
+
+**Confidence calibration** (`src/calibrate.py`). The proposal does not mention
+calibration; the word appears nowhere in it. It was added because the softmax
+outputs a screening tool presents to a health worker are not probabilities in
+any useful sense unless checked — modern networks are systematically
+overconfident (Guo et al., "On Calibration of Modern Neural Networks", ICML
+2017). Expected Calibration Error, a reliability diagram and temperature
+scaling fitted on the validation split. Measured on MobileNetV2: mean
+confidence 98.96% against 98.02% accuracy, corrected to 98.21% at temperature
+1.428; validation ECE 0.0121 -> 0.0070.
+
+**Selective prediction** (abstention threshold). Below a confidence threshold
+the prototype declines to name a condition and recommends consulting a
+clinician. The threshold is chosen on validation from the risk-coverage
+trade-off, never on test. Measured on MobileNetV2: answering 97.0% of test
+cases raises accuracy on those answered from 98.32% to 99.59%. This serves the
+proposal's own positioning of the system as assistive screening rather than
+diagnosis (5.7), and 2.5.8's criticism of work that optimises accuracy without
+regard to clinical usability.
+
+## Known deviation
+
+**OpenCV is listed under 5.5 Resources Needed but is not used.** Image loading,
+resizing and cleaning are done with Pillow and NumPy, which cover everything the
+pipeline needs. OpenCV remains in `requirements.txt` but no module imports it.
+Adding a contrived use to match the resource list would be worse than recording
+the discrepancy; the write-up should either amend 5.5 or note that Pillow was
+used in its place.
 
 ## Dataset sources
 
@@ -87,6 +121,18 @@ the class (`normalnail`, `naildystrophy`, `-focus`). **Resolved:**
 `src/extract_montages.py` tiles the `normalnail` sheets into individual healthy
 nail images, which join the Healthy Foot/Nail class alongside the Mendeley
 whole-foot photographs.
+
+## Deliverable status
+
+| WBS | Deliverable | Status |
+|---|---|---|
+| 3 | Dataset preparation | Complete — 8,374 images, reproducible split |
+| 4.1-4.7 | MobileNetV2 training | Complete |
+| 4.1-4.7 | ResNet50 training | **Outstanding** — must be retrained on the current split |
+| 5.1-5.5 | Metrics, confusion matrix | Complete for MobileNetV2 |
+| 5.6 | Comparative evaluation | **Outstanding** — requires both models |
+| 6.1-6.5 | Prototype | Complete |
+| — | Calibration and abstention | Complete for MobileNetV2 |
 
 ## Dataset limitations to state in the dissertation
 
