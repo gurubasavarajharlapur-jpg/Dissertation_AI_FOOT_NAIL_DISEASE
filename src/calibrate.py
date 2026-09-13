@@ -45,6 +45,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src import config  # noqa: E402
+from src.evaluate import assert_model_matches_split  # noqa: E402
 
 import tensorflow as tf  # noqa: E402
 from tensorflow import keras  # noqa: E402
@@ -257,6 +258,7 @@ def calibrate_one(model_name: str) -> dict:
     print(f"{model_name.upper()} — CALIBRATION")
     print("=" * 74)
 
+    assert_model_matches_split(model_name)
     model = keras.models.load_model(config.model_path(model_name))
     val_probs, val_true = predict_split(model, "val")
     test_probs, test_true = predict_split(model, "test")

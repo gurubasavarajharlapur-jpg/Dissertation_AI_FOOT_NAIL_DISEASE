@@ -79,6 +79,50 @@ PREPROCESS = {
 
 
 # ---------------------------------------------------------------------------
+# Staleness guard
+# ---------------------------------------------------------------------------
+def assert_model_matches_split(model_name: str) -> None:
+    """Refuse to score a model that was trained against a different split.
+
+    A checkpoint outlives the data it was trained on. Re-running preprocessing
+    with changed settings produces a new split while the old .keras file sits
+    there looking perfectly usable — and a model trained on the previous split
+    has very likely seen images that are now in the test set. The resulting
+    numbers would be inflated by leakage and look *better*, which is the kind of
+    error that survives review.
+
+    The training history records how many validation images the run saw, so
+    comparing that against the current split catches the mismatch.
+    """
+    history_path = config.history_path(model_name)
+    if not history_path.exists():
+        print(f"NOTE: no training history for {model_name}; cannot verify it matches "
+              f"the current split.")
+        return
+
+    val_csv = config.PROCESSED_DIR / "val.csv"
+    if not val_csv.exists():
+        return
+
+    current = len(pd.read_csv(val_csv))
+    recorded = json.loads(history_path.read_text()).get("val_images")
+    if recorded is None or recorded == current:
+        return
+
+    raise SystemExit(
+        f"\n'{model_name}' was trained against a different split.\n"
+        f"  its training run saw {recorded} validation images; the current split "
+        f"has {current}.\n\n"
+        f"A model trained on the earlier split has probably seen images that are "
+        f"now in the\n  test set, so scoring it here would leak and overstate its "
+        f"performance.\n\n"
+        f"Retrain it:  python src/train.py --model {model_name}\n"
+        f"Or evaluate only the current model(s): "
+        f"python src/evaluate.py --model <name>"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
 def load_test_set() -> pd.DataFrame:
@@ -564,6 +608,9 @@ def main() -> int:
 
     print(f"Test set: {len(frame)} images, {config.NUM_CLASSES} classes")
     print("This split has not been used for any training or selection decision.")
+
+    for name in available:
+        assert_model_matches_split(name)
 
     summaries: dict[str, dict] = {}
     for name in available:
