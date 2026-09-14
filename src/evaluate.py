@@ -522,7 +522,56 @@ def print_model_report(model_name: str, metrics: dict, efficiency: dict,
         print(f"{names[i][:13]:<14}" + "".join(f"{v:>13}" for v in row))
 
 
-def print_comparison(summaries: dict[str, dict]) -> pd.DataFrame:
+def save_predictions(model_name: str, frame: pd.DataFrame, y_true: np.ndarray,
+                     y_pred: np.ndarray, y_prob: np.ndarray) -> Path:
+    """Write one row per test image so the two models can be compared *paired*.
+
+    Accuracy alone cannot say whether a difference between architectures is
+    real: two models evaluated on the same 1,248 images make correlated errors,
+    so the comparison has to be made image by image rather than by treating the
+    two accuracies as independent samples. Saving predictions also means a
+    significance test never requires re-running inference.
+    """
+    out = pd.DataFrame({
+        "path": frame["path"].to_numpy(),
+        "source": frame["source"].to_numpy(),
+        "true": [config.CLASS_NAMES[i] for i in y_true],
+        "predicted": [config.CLASS_NAMES[i] for i in y_pred],
+        "correct": (y_true == y_pred).astype(int),
+        "confidence": y_prob.max(axis=1).round(6),
+    })
+    path = config.METRICS_DIR / f"{model_name}_predictions.csv"
+    out.to_csv(path, index=False)
+    return path
+
+
+def mcnemar(correct_a: np.ndarray, correct_b: np.ndarray) -> dict:
+    """McNemar's exact test on two models scored over the same images.
+
+    Only the images the models disagree on carry information: b is the count
+    the first gets right and the second wrong, c the reverse. Under the null
+    that the two are equally accurate, each disagreement is a fair coin, so the
+    exact binomial test on (b, b + c) is the p-value. Images both get right or
+    both get wrong are uninformative and are correctly discarded.
+
+    The exact test is used rather than the chi-square approximation because the
+    discordant count here is small (~20), which is where the approximation is
+    least reliable.
+    """
+    b = int(np.sum((correct_a == 1) & (correct_b == 0)))
+    c = int(np.sum((correct_a == 0) & (correct_b == 1)))
+    result = {"n": int(len(correct_a)), "only_first_correct": b,
+              "only_second_correct": c, "discordant": b + c}
+    if b + c == 0:
+        result["p_value"] = 1.0
+        return result
+    from scipy.stats import binomtest
+    result["p_value"] = float(binomtest(b, b + c, 0.5).pvalue)
+    return result
+
+
+def print_comparison(summaries: dict[str, dict],
+                     paired: dict | None = None) -> pd.DataFrame:
     rows = []
     for name, summary in summaries.items():
         m, e = summary["metrics"], summary["efficiency"]
@@ -556,6 +605,19 @@ def print_comparison(summaries: dict[str, dict]) -> pd.DataFrame:
                 f"for {o['parameters'] / p['parameters']:.1f}x the parameters and "
                 f"{o['size_mb'] / p['size_mb']:.1f}x the on-disk size."
             )
+            test = paired.get((p["model"], o["model"])) if paired else None
+            if test:
+                verdict = ("\na difference this size would arise by chance in "
+                           f"{test['p_value']:.1%} of runs, so it is not established "
+                           "by this test." if test["p_value"] >= 0.05
+                           else " unlikely to be chance.")
+                message += (
+                    f"\nPaired over the same images (McNemar exact): they disagree on "
+                    f"{test['discordant']} of {test['n']},\n"
+                    f"{test['only_second_correct']} in {o['model']}'s favour and "
+                    f"{test['only_first_correct']} in {p['model']}'s, p = "
+                    f"{test['p_value']:.4f} —{verdict}"
+                )
             if p.get("inference_ms_cpu") and o.get("inference_ms_cpu"):
                 message += (
                     f"\nOn CPU — the device a phone resembles — {o['model']} takes "
@@ -632,6 +694,7 @@ def main() -> int:
         assert_model_matches_split(name)
 
     summaries: dict[str, dict] = {}
+    correctness: dict[str, np.ndarray] = {}
     for name in available:
         model = keras.models.load_model(config.model_path(name))
         y_prob = model.predict(dataset, verbose=0)
@@ -644,8 +707,12 @@ def main() -> int:
         print_model_report(name, metrics, efficiency, y_true, y_pred)
         print_within_source(name, by_source)
 
+        correctness[name] = (y_true == y_pred).astype(int)
+
         cm_path = plot_confusion_matrix(metrics["confusion_matrix"], name)
         print(f"\n  confusion matrix -> {cm_path.relative_to(config.PROJECT_ROOT)}")
+        pred_path = save_predictions(name, frame, y_true, y_pred, y_prob)
+        print(f"  per-image preds  -> {pred_path.relative_to(config.PROJECT_ROOT)}")
 
         if not args.no_gradcam:
             cam_path = plot_gradcam_grid(model, name, frame, y_true, y_pred, y_prob)
@@ -659,8 +726,19 @@ def main() -> int:
         keras.backend.clear_session()
 
     if len(summaries) > 1:
-        table = print_comparison(summaries)
+        # Pair every ordered combination present. With the two architectures the
+        # proposal specifies there is exactly one, but keying it this way means
+        # a third model would not need this code changed.
+        paired = {}
+        for first in available:
+            for second in available:
+                if first != second:
+                    paired[(first, second)] = mcnemar(correctness[first], correctness[second])
+
+        table = print_comparison(summaries, paired)
         table.to_csv(config.METRICS_DIR / "model_comparison.csv", index=False)
+        (config.METRICS_DIR / "paired_significance.json").write_text(json.dumps(
+            {f"{a}_vs_{b}": v for (a, b), v in paired.items()}, indent=2))
         comparison_plot = plot_comparison(summaries)
         print(f"\n  comparison table -> results/metrics/model_comparison.csv")
         if comparison_plot:
