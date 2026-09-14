@@ -37,6 +37,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+import re
 import zipfile
 from pathlib import Path
 
@@ -314,29 +315,63 @@ def _score(model, model_name: str, items: list[tuple[np.ndarray, int]],
     }
 
 
+def _folder_key(name: str) -> str:
+    """Normalise a folder name so obvious spellings of a class still match.
+
+    Someone organising photographs by hand will write "Foot Ulcer" or
+    "foot-ulcer" as readily as "foot_ulcer", and on a case-sensitive filesystem
+    the exact-match version of this silently discarded the lot. Lower-case and
+    collapse every run of non-alphanumeric characters to one underscore.
+    """
+    return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+
+
+# Accepted spellings -> class index. Both the internal name and the display
+# name are registered, so "foot_ulcer", "Foot Ulcer" and "Foot-Ulcer" all land
+# on the same class.
+FOLDER_ALIASES: dict[str, int] = {}
+for _name, _index in config.CLASS_TO_INDEX.items():
+    FOLDER_ALIASES[_folder_key(_name)] = _index
+    FOLDER_ALIASES[_folder_key(config.CLASS_DISPLAY_NAMES[_name])] = _index
+
+
 def _load_zip(data: bytes) -> tuple[list[tuple[np.ndarray, int]], list[str]]:
     """Read images from a zip organised as <class_name>/<image>."""
     items, notes = [], []
     unknown: set[str] = set()
+    unreadable: dict[str, int] = {}
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         for name in zf.namelist():
             path = Path(name)
             if path.is_dir() or name.startswith("__MACOSX/") or path.name.startswith("."):
                 continue
-            if path.suffix.lower() not in config.VALID_EXTENSIONS:
-                continue
-            # The class is the nearest parent folder matching a project class.
-            label = next((p for p in path.parts[::-1] if p in config.CLASS_TO_INDEX), None)
+            # The class is the nearest parent folder naming a project class.
+            label = next((FOLDER_ALIASES[key] for key in
+                          (_folder_key(part) for part in path.parts[::-1])
+                          if key in FOLDER_ALIASES), None)
             if label is None:
                 unknown.add(path.parent.as_posix())
                 continue
+            if path.suffix.lower() not in config.VALID_EXTENSIONS:
+                # Counted and reported rather than dropped. A phone shooting
+                # HEIC would otherwise produce an empty result with no
+                # explanation of why.
+                unreadable[path.suffix.lower() or "(no extension)"] = (
+                    unreadable.get(path.suffix.lower() or "(no extension)", 0) + 1)
+                continue
             with zf.open(name) as handle:
-                items.append((prepare(Image.open(io.BytesIO(handle.read()))),
-                              config.CLASS_TO_INDEX[label]))
+                items.append((prepare(Image.open(io.BytesIO(handle.read()))), label))
     if unknown:
         notes.append(
             f"{len(unknown)} folder(s) skipped — names must match a project class "
             f"({', '.join(config.CLASS_NAMES)}): {sorted(unknown)[:4]}"
+        )
+    if unreadable:
+        listed = ", ".join(f"{n}x {ext}" for ext, n in sorted(unreadable.items()))
+        notes.append(
+            f"{sum(unreadable.values())} file(s) skipped — unsupported format ({listed}). "
+            f"iPhones save HEIC by default: set Settings > Camera > Formats > "
+            f"Most Compatible, or convert to JPEG before zipping."
         )
     return items, notes
 
