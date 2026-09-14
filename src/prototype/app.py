@@ -49,6 +49,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src import config  # noqa: E402
+from src.stats import wilson_interval  # noqa: E402
 
 st.set_page_config(page_title="Foot & Nail Screening — MSc Prototype",
                    page_icon="🦶", layout="wide")
@@ -437,10 +438,23 @@ def batch_tab(model_name: str) -> None:
     c.metric("Macro recall", f"{result['macro_recall']:.3f}")
     d.metric("Answered (not abstained)", f"{result['coverage']:.1%}")
 
-    if result["n"] < 100:
-        st.caption(
-            f"With {result['n']} images these figures are noisy — a class with 5 "
-            f"examples moves in 20% steps. Report counts alongside percentages."
+    # On a set this size the point estimate alone invites over-reading. The
+    # interval is the figure that belongs in a write-up: 19/20 correct is
+    # "95%", but it is also consistent with a true accuracy of 76%.
+    correct = int(round(result["accuracy"] * result["n"]))
+    low, high = wilson_interval(correct, result["n"])
+    st.caption(
+        f"**{correct} of {result['n']} correct. 95% confidence interval "
+        f"{low:.1%} to {high:.1%}** (Wilson). Quote the interval, not the "
+        f"point estimate alone — on a set this size it is the honest figure, "
+        f"and an interval is what a reviewer will look for."
+    )
+    if result["n"] < 30:
+        st.warning(
+            f"{result['n']} images is enough to demonstrate the pipeline but not "
+            f"to estimate accuracy — the interval above spans "
+            f"{(high - low) * 100:.0f} percentage points. Around 60 images "
+            f"narrows it to roughly 12."
         )
 
     st.dataframe(result["per_class"].style.format(

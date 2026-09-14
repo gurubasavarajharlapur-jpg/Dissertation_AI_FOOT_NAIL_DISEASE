@@ -68,3 +68,21 @@ def paired_bootstrap_ci(correct_a: np.ndarray, correct_b: np.ndarray,
         "ci_high": float(hi),
         "resamples": resamples,
     }
+
+
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% confidence interval for a proportion, Wilson's method.
+
+    Used rather than the textbook normal approximation because that one
+    misbehaves exactly where a small external validation set lands: near 0 or
+    1, and at small n, it produces intervals running past 100% or of zero
+    width. Wilson stays inside [0, 1] and stays sensible on a handful of
+    images, which is the situation this is for.
+    """
+    if n <= 0:
+        return (0.0, 1.0)
+    p = successes / n
+    denominator = 1 + z ** 2 / n
+    centre = (p + z ** 2 / (2 * n)) / denominator
+    spread = z * ((p * (1 - p) / n + z ** 2 / (4 * n ** 2)) ** 0.5) / denominator
+    return (max(0.0, centre - spread), min(1.0, centre + spread))
