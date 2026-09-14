@@ -124,15 +124,25 @@ whole-foot photographs.
 
 ## Deliverable status
 
+All WBS deliverables are complete. Both architectures are trained on the same
+split and evaluated in a single run, so every reported figure comes from one
+consistent result set.
+
 | WBS | Deliverable | Status |
 |---|---|---|
 | 3 | Dataset preparation | Complete — 8,374 images, reproducible split |
-| 4.1-4.7 | MobileNetV2 training | Complete |
-| 4.1-4.7 | ResNet50 training | **Outstanding** — must be retrained on the current split |
-| 5.1-5.5 | Metrics, confusion matrix | Complete for MobileNetV2 |
-| 5.6 | Comparative evaluation | **Outstanding** — requires both models |
-| 6.1-6.5 | Prototype | Complete |
-| — | Calibration and abstention | Complete for MobileNetV2 |
+| 4.1-4.7 | MobileNetV2 training | Complete — val loss 0.0604, val accuracy 0.9802 |
+| 4.1-4.7 | ResNet50 training | Complete — val loss 0.0272, val accuracy 0.9905 |
+| 5.1-5.5 | Metrics, confusion matrix | Complete for both models |
+| 5.6 | Comparative evaluation | Complete — accuracy, macro F1, per-class recall, parameters, size and CPU/GPU latency for both |
+| 6.1-6.5 | Prototype | Complete — screening and batch tabs, Grad-CAM, calibrated confidence |
+| — | Calibration and abstention | Complete for both models |
+| — | Confound validation | Complete — within-source, Grad-CAM and controlled occlusion ablation, both models |
+
+Remaining is evidence-gathering rather than implementation: one `evaluate.py`
+re-run to record the paired significance test (added after the current results
+were produced), and optional external validation with independently captured
+photographs through the prototype's batch tab.
 
 ## Dataset limitations to state in the dissertation
 
