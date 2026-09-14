@@ -471,11 +471,28 @@ def main() -> None:
             st.warning("Not calibrated — raw softmax, no abstention.")
         else:
             st.metric("Temperature", f"{calibration['temperature']:.3f}")
-            st.metric("Abstention below", f"{calibration['abstention_threshold']:.1%}")
-            st.caption(
-                "Both fitted on the validation split. Temperature rescales confidence "
-                "without changing any prediction."
-            )
+            # A threshold of zero is a real outcome, not a missing value: the
+            # search found the model already met its target accuracy answering
+            # every validation case, so no abstention was warranted. Rendered as
+            # "0.0%" it reads like calibration failed, which invites exactly the
+            # wrong question in a viva.
+            if calibration["abstention_threshold"] <= 0:
+                st.metric("Abstention below", "none")
+                st.caption(
+                    f"Temperature fitted on the validation split; it rescales "
+                    f"confidence without changing any prediction. No abstention "
+                    f"threshold was set: this model reached the "
+                    f"{config.SELECTIVE_TARGET_ACCURACY:.0%} target accuracy "
+                    f"answering every validation case, so the selection procedure "
+                    f"returned none. Every prediction below is therefore reported, "
+                    f"however uncertain."
+                )
+            else:
+                st.metric("Abstention below", f"{calibration['abstention_threshold']:.1%}")
+                st.caption(
+                    "Both fitted on the validation split. Temperature rescales "
+                    "confidence without changing any prediction."
+                )
         st.markdown("---")
         st.caption(
             f"Classes: {', '.join(config.CLASS_DISPLAY_NAMES[c] for c in config.CLASS_NAMES)}"
