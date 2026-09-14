@@ -15,8 +15,9 @@ decision. Written to be quoted from directly when drafting the dissertation.
   equal-area interior control.
 - **No statistically significant accuracy difference between the two
   architectures** — McNemar's exact test, p = 0.15, with any real difference
-  bounded at +1.4 points at 95% confidence. MobileNetV2 reaches that at a tenth
-  of the parameters and roughly twice the CPU speed (§2, §6).
+  bounded at +1.4 points at 95% confidence. On the confound-free comparison
+  they are indistinguishable (p = 0.77). MobileNetV2 reaches that at a tenth of
+  the parameters and roughly twice the CPU speed (§2, §6).
 - **Calibrated confidence with a referral threshold**: decline the least
   confident 3% of cases and refer them, and be correct on **99.6%** of the rest
   (§3).
@@ -209,17 +210,62 @@ it.
 ### Per-class and per-source significance
 
 `src/compare_models.py` repeats the paired test within each class and each
-source, from the saved prediction CSVs — no GPU, no re-run of inference:
+source, from the saved prediction CSVs — seconds, on CPU, no re-run of
+inference. All results at 1,248 images:
 
-```bash
-python src/compare_models.py
-```
+| Comparison | n | MobileNetV2 | ResNet50 | Disagree | p |
+|---|---|---|---|---|---|
+| **Overall** | 1,248 | 21 errors | 13 errors | 24 (16/8) | **0.1516** |
+| Healthy Foot/Nail | 556 | 3 | 0 | 3 (3/0) | 0.2500 |
+| Nail Fungal Infection | 117 | 1 | 0 | 1 (1/0) | 1.0000 |
+| Foot Wound/Injury | 376 | 8 | 10 | 12 (5/7) | 0.7744 |
+| **Foot Ulcer** | 199 | 9 | 3 | 8 (7/1) | **0.0703** |
+| figshare_nail | 117 | 1 | 0 | 1 (1/0) | 1.0000 |
+| figshare_nail_tiles | 143 | 3 | 0 | 3 (3/0) | 0.2500 |
+| **mendeley_foot** *(two classes)* | 789 | 8 | 10 | 12 (5/7) | **0.7744** |
+| ulcer_fuseg | 199 | 9 | 3 | 8 (7/1) | 0.0703 |
 
-The class that matters is **Foot Ulcer**, where MobileNetV2 misses nine and
-ResNet50 three. That is a separate question from overall accuracy and deserves
-its own test rather than inheriting the overall verdict: a model can be better
-overall and no better on the class that decides whether the tool is safe.
-Quote that p-value in the discussion alongside the recall figures.
+Disagreements are shown as (to ResNet50 / to MobileNetV2). **No comparison in
+the study reaches significance at the 5% level.** Two rows carry the argument.
+
+**`mendeley_foot`, p = 0.7744 — the models are indistinguishable where it
+counts.** This is the confound-free comparison: 789 images, both healthy feet
+and wounds, one clinic, one camera, so recognising the dataset cannot
+substitute for recognising the condition. The models disagree on 12 images, 7
+of them in MobileNetV2's favour, and the test is nowhere near significance.
+
+A detail worth quoting: **both models classified all 413 healthy feet in this
+source correctly.** Every error and every disagreement on `mendeley_foot` was
+on a wound. Where the comparison is cleanest, the compact model is not behind —
+it is fractionally ahead, on a difference far too small to claim.
+
+**Foot Ulcer, p = 0.0703 — the one comparison that approaches significance, and
+it favours ResNet50.** Nine missed ulcers against three, with 7 of the 8
+disagreements in ResNet50's favour. It does not cross the conventional 5%
+threshold on 199 ulcer images, so it cannot be reported as an established
+difference. But it is the largest effect in the study and the direction is
+consistent, so the honest description is a **trend, on the clinically most
+important class, that a larger ulcer test set could confirm.**
+
+Do not overstate this in either direction. It is not a proven deficiency in
+MobileNetV2, and p = 0.07 is not "nearly significant" in a way that licenses
+treating it as significant. It is a signal worth acting on in design rather
+than dismissing — which is exactly what the referral threshold in §3 does, and
+why that mechanism matters more for the deployment candidate than for the
+reference model.
+
+### What the significance testing establishes
+
+1. **The headline accuracy gap is not established** (p = 0.15), and any real
+   difference is bounded at +1.4 points at 95% confidence.
+2. **Where dataset provenance cannot help either model, they are
+   indistinguishable** (p = 0.77), with MobileNetV2 fractionally ahead.
+3. **The one comparison that trends is Foot Ulcer** (p = 0.07), favouring
+   ResNet50 — reported as a trend, and addressed by abstention rather than by
+   changing the recommended architecture.
+
+That is a more complete answer than "ResNet50 scored 0.64 points higher", and
+it is the answer WBS 5.6 asks for.
 
 ### Efficiency
 
@@ -329,9 +375,16 @@ test available in this data.
 evidence of genuine pathology discrimination and it is the headline of this
 section.
 
-It is also where the deployment recommendation is won: on the strictest test
-in the study, the compact model matches an architecture ten times its size
-(a 2-image difference on 789 is well inside sampling noise).
+**Both models also classified all 413 healthy feet in this source correctly** —
+every error and every disagreement here was on a wound. A model separating
+healthy from diseased by recognising the dataset could not do that, because
+both classes come from the same dataset.
+
+It is also where the deployment recommendation is won: on the strictest test in
+the study the two architectures are **statistically indistinguishable**
+(McNemar's exact test, p = 0.77 — they disagree on 12 of 789 images, 7 of them
+in MobileNetV2's favour). The compact model matches an architecture ten times
+its size exactly where the comparison is cleanest.
 
 ### 4.2 Grad-CAM — passed
 
@@ -441,9 +494,9 @@ measured grounds:
 1. **There is no statistically significant accuracy difference between the two
    models.** McNemar's exact test on the paired per-image outcomes gives
    p = 0.15, with the difference bounded at +1.4 accuracy points at 95%
-   confidence (§2). The same holds on the strictest comparison available —
-   0.9899 against 0.9873 on the 789 within-source images, a difference of two
-   images (§4.1).
+   confidence (§2). On the confound-free comparison the two are
+   indistinguishable — 0.9899 against 0.9873 on 789 within-source images,
+   p = 0.77, with MobileNetV2 fractionally ahead (§4.1).
 2. **It is a tenth of the size and 1.9× faster on CPU** — 21.78 MB against
    210.55 MB, 248.29 ms against 460.56 ms per image. CPU is the device class a
    mid-range phone resembles.
@@ -455,11 +508,19 @@ measured grounds:
 
 **ResNet50 is the stronger accuracy reference, and should be reported as such.**
 0.9896 accuracy, 0.9875 macro F1, perfect recall on both nail classes, and
-three missed ulcers against nine. Where a server is available and the ulcer
-miss rate outweighs every other consideration, it is the better model. That
-finding is a genuine part of the contribution, not a concession — the
+three missed ulcers against nine — the one comparison in the study that
+approaches significance (p = 0.07, §2). Where a server is available and the
+ulcer miss rate outweighs every other consideration, it is the better choice.
+That finding is a genuine part of the contribution, not a concession: the
 comparison was run precisely so the trade-off could be quantified rather than
-assumed.
+assumed, and the ulcer trend is the most useful thing it surfaced.
+
+**The ulcer trend is addressed by design, not by ignoring it.** MobileNetV2 is
+the model that carries a working referral threshold (§3), and abstention is
+precisely the mechanism for a class the model is least certain about: decline
+the least confident cases and route them to a clinician. An examiner asking
+"but ResNet50 misses fewer ulcers" should get the trade-off *and* the
+mitigation, not a dismissal of the number.
 
 **The contribution is the quantified trade-off**, which is what WBS 5.6 asks
 for: a 0.64-point accuracy gap that does not reach significance, six fewer
@@ -470,11 +531,12 @@ real, nor priced it. This one does both.
 
 One honest qualification to carry into the discussion. Failing to establish a
 difference is not the same as establishing equivalence, and with 1,248 test
-images this study cannot resolve a difference smaller than roughly 1.4
-accuracy points. The recommendation does not depend on the two models being
-identical — it depends on the difference being small enough that a tenfold
-reduction in size is worth it, and 1.4 points is the upper bound on how large
-that difference could be.
+images — 199 of them ulcers — this study cannot resolve a difference smaller
+than roughly 1.4 accuracy points overall, nor settle the ulcer trend either
+way. The recommendation does not depend on the two models being identical. It
+depends on the difference being small enough that a tenfold reduction in size
+is worth it, on that difference being bounded, and on the residual ulcer risk
+having a mitigation. All three hold.
 
 ---
 
@@ -543,17 +605,44 @@ likely to be asked, because §2.5.8 shows the published work does not answer it.
 > difference was found" rather than "the models are equivalent", because the
 > test cannot prove equivalence — but it does bound any real difference at
 > about 1.4 points, and that is the number the deployment trade-off is weighed
-> against.
+> against. I also ran the test within each class and each source, because an
+> overall figure can hide a difference on one class.
 
 **"So is ResNet50's better ulcer recall real, or also noise?"**
 
-> That is the right follow-up, and it is a separate test — overall accuracy
+> That is the right follow-up, and it needs its own test — overall accuracy
 > cannot answer it, because a model can be better overall and no better on the
 > class that matters. I ran the same paired test restricted to the 199 ulcer
-> images. [Quote the per-class p-value from `python src/compare_models.py`.]
-> Either way I report the recall figures and the count, nine missed against
-> three, because for a screening tool the count is what a clinician cares
-> about and the significance test is what an examiner cares about.
+> images: they disagree on 8, seven in ResNet50's favour, p = 0.07. So it does
+> not reach significance, but it is the largest effect in my study and the only
+> comparison that comes close, and the direction is consistent. I report it as
+> a trend on the clinically most important class that a larger ulcer test set
+> could confirm — not as an established difference, and not as nothing.
+
+**"If ResNet50 might genuinely be better at ulcers, why is your recommendation
+still MobileNetV2?"**
+
+> Because the recommendation is for a phone-based screening tool, and it comes
+> with a referral threshold. Abstention is exactly the right mechanism for the
+> class a model is least certain about: MobileNetV2 declines the least
+> confident 3% of cases and refers them to a clinician, and is correct on 99.6%
+> of what it does answer. So the design response to a possible ulcer weakness
+> is to refer, not to ship a model ten times the size onto a phone that cannot
+> run it. If the deployment target were a clinic server rather than a handset,
+> my recommendation would be ResNet50 — that is the trade-off my comparison was
+> built to quantify.
+
+**"Nothing in your study reached statistical significance. Isn't that a weak
+result?"**
+
+> It is a clear result, and it is the one my research question asked for. The
+> question was whether a compact architecture is good enough for phone-based
+> screening, not which of two models scores higher. Finding no significant
+> difference between MobileNetV2 and ResNet50 — and bounding any real
+> difference at 1.4 accuracy points — is direct evidence for the deployment
+> case, because MobileNetV2 delivers it at a tenth of the parameters and
+> roughly half the CPU latency. A significant gap in ResNet50's favour would
+> have been the weaker result for this project.
 
 **"Why did you calibrate? Your accuracy was already high."**
 
@@ -701,20 +790,19 @@ nail case at all.
 
 Done: ResNet50 is trained on the current split (5.4, WBS 5.6); `evaluate.py`,
 `calibrate.py` and `ablate_border.py` have all been run with both models; and
-the overall paired significance test is measured. Every figure above comes
-from one consistent result set.
+the paired significance testing is complete, overall and within every class
+and source. Every figure above comes from one consistent result set.
 
-1. **Run `python src/compare_models.py`** to record the per-class and
-   per-source p-values, in particular the Foot Ulcer one. Seconds, on CPU, from
-   the saved prediction CSVs — no GPU and no re-run of inference. The overall
-   test is done (p = 0.1516, §2).
-2. **External validation** — 20–50 photographs taken independently, scored
+1. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. The highest-value addition remaining, and
    the only evidence that would settle which model to recommend (§6); check
    whether ethics approval is required first.
-3. **Optional, if GPU time allows: a second seed for each architecture.** Would
-   bound the seed-to-seed variance noted in §8.
-   Not required by the proposal.
+2. **Optional, if GPU time allows: a second seed for each architecture.** Would
+   bound the seed-to-seed variance noted in §8. Not required by the proposal.
+3. **Optional: more ulcer test images.** The one trend in the study (p = 0.07)
+   sits on 199 ulcers. More would settle it either way, and settling it is the
+   single most useful additional measurement available. Not required by the
+   proposal.
 
 ---
 

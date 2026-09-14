@@ -138,11 +138,11 @@ consistent result set.
 | 6.1-6.5 | Prototype | Complete — screening and batch tabs, Grad-CAM, calibrated confidence |
 | — | Calibration and abstention | Complete for both models |
 | — | Confound validation | Complete — within-source, Grad-CAM and controlled occlusion ablation, both models |
+| — | Paired significance testing | Complete — McNemar exact overall, per class and per source, plus a paired bootstrap CI |
 
-Remaining is evidence-gathering rather than implementation: one `evaluate.py`
-re-run to record the paired significance test (added after the current results
-were produced), and optional external validation with independently captured
-photographs through the prototype's batch tab.
+Remaining is evidence-gathering rather than implementation: optional external
+validation with independently captured photographs through the prototype's
+batch tab.
 
 ## Dataset limitations to state in the dissertation
 
