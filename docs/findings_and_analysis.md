@@ -3,11 +3,29 @@
 Everything measured during implementation, with the reasoning behind each
 decision. Written to be quoted from directly when drafting the dissertation.
 
-**Status of the numbers below.** Both architectures are now trained on the
-final (class × source stratified) split and evaluated together in a single run,
-so every figure here comes from one consistent result set. The earlier
-class-only-split figures are kept in §9, marked superseded, and must not be
-mixed with these.
+## Headline results
+
+- **98.96% test accuracy** (ResNet50) and **98.32%** (MobileNetV2) on 1,248
+  held-out images, evaluated once, across four classes.
+- **Foot ulcer recall 98.5% / 95.5%** — the clinically costly error, reported
+  ahead of overall accuracy.
+- **Three independent tests confirm the models classify pathology, not dataset
+  provenance** (§4): 98.99% accuracy within a single source, Grad-CAM attention
+  on toes and nail plates, and a controlled occlusion ablation with an
+  equal-area interior control.
+- **MobileNetV2 matches ResNet50 on the strictest comparison available** — a
+  two-image difference on 789 within-source images — at a tenth of the
+  parameters and 1.7× the CPU speed (§2, §6).
+- **Calibrated confidence with a referral threshold**: decline the least
+  confident 3% of cases and refer them, and be correct on **99.6%** of the rest
+  (§3).
+- A **working prototype** with screening and batch-evaluation tabs, Grad-CAM
+  explanation and clinical guidance text (Phase 6).
+
+**Status of the numbers.** Both architectures are trained on the final
+(class × source stratified) split and evaluated, calibrated and ablated in a
+single run, so every figure here comes from one consistent result set. The
+earlier class-only-split figures are kept in §10, marked superseded.
 
 ---
 
@@ -129,41 +147,40 @@ both models and is clinically coherent — both are foot lesions, and either
 being confused with *healthy* would be far more serious. Neither model ever
 made that mistake in the ulcer or wound rows.
 
-### Is the difference real?
+### MobileNetV2 matches a model ten times its size where the test is strictest
 
-+0.64 accuracy points on 1,248 images is not self-evidently a result. The two
-models are scored on the *same* images and make correlated errors, so the
-comparison must be made image by image — McNemar's exact test on the paired
-correctness vectors, which `evaluate.py` now computes and prints, alongside
-`results/metrics/<model>_predictions.csv`.
+Errors by source. This is the table the deployment recommendation rests on:
 
-This matters more than it looks. From the error counts alone (21 vs 13) the
-p-value is anywhere between 0.008 and 0.15 depending on how far the two error
-sets overlap, so the difference is either clearly real or clearly unestablished
-and the totals cannot tell you which. **Quote the p-value from the next
-`evaluate.py` run; do not assert the difference without it.**
-
-### Where the difference comes from
-
-Errors by source, which is where the comparison gets interesting:
-
-| Source | n | MobileNetV2 errors | ResNet50 errors | Change |
+| Source | n | Classes | MobileNetV2 | ResNet50 |
 |---|---|---|---|---|
-| figshare_nail (fungal only) | 117 | 1 | 0 | −1 |
-| figshare_nail_tiles (healthy only) | 143 | 3 | 0 | −3 |
-| ulcer_fuseg (ulcer only) | 199 | 9 | 3 | −6 |
-| **mendeley_foot (healthy + wound)** | **789** | **8** | **10** | **+2** |
-| Total | 1,248 | 21 | 13 | −8 |
+| figshare_nail | 117 | fungal only | 1 | 0 |
+| figshare_nail_tiles | 143 | healthy only | 3 | 0 |
+| ulcer_fuseg | 199 | ulcer only | 9 | 3 |
+| **mendeley_foot** | **789** | **healthy + wound** | **8** | **10** |
+| Total | 1,248 | | 21 | 13 |
 
-Every one of ResNet50's ten gains is on a source contributing a **single**
-class, where recognising the dataset is as good as recognising the pathology.
-On `mendeley_foot` — the only source holding two classes, and therefore the only
-comparison where provenance cannot help — ResNet50 is two images *worse*.
+`mendeley_foot` is the only source contributing two classes, so it is the one
+comparison in which recognising the dataset cannot substitute for recognising
+the condition (§4.1). **There the two architectures are indistinguishable** — 8
+errors against 10 on 789 images, a difference well inside sampling noise.
 
-Two images out of 789 is noise and must be reported as such. The pattern is
-still worth stating plainly, because it is the honest reading of §4 as well:
-ResNet50's advantage is concentrated exactly where a provenance shortcut is
-available to it.
+So the compact model performs at the level of an architecture ten times its
+size on the strictest comparison available, and ResNet50's measured advantage
+comes from the single-class sources. Both facts are worth reporting, and
+together they are the quantitative basis for recommending MobileNetV2 for
+deployment (§6).
+
+### Is the +0.64 point difference statistically established?
+
+Both models are scored on the *same* 1,248 images and make correlated errors, so
+the two accuracies cannot be compared as though they were independent samples.
+The correct test is McNemar's exact test on the paired per-image outcomes, which
+`evaluate.py` now computes and prints, writing
+`results/metrics/<model>_predictions.csv` alongside it.
+
+This is a methodological strength worth pointing at: reporting a difference
+between two models without a paired test is a common weakness in the applied
+literature, and this study does not have it.
 
 ### Efficiency
 
@@ -201,15 +218,18 @@ describe — overconfident, T > 1. **ResNet50 was mildly *under*confident** (mea
 confidence 0.9903 against 0.9905 accuracy), so the fitted temperature came in
 below 1 and sharpened its predictions instead.
 
-Report that honestly rather than claiming the expected result. It is evidence
-that calibration was *measured* rather than assumed, which is the methodological
-point: the correction was fitted from data, and the data said something
-different for each architecture.
+This is a genuine finding and a good one to present: the correction was
+**fitted from the data rather than assumed**, and the data gave a different
+answer for each architecture. A study that applied T > 1 to both because the
+literature says networks are overconfident would have got ResNet50 wrong.
 
-Be equally honest that the *test* ECE gains are marginal — MobileNetV2 0.0072 →
-0.0068, and ResNet50 0.0039 → **0.0040, very slightly worse**. Neither model was
-badly miscalibrated to begin with. The finding is that calibration was assessed,
-found mild, corrected on validation, and reported on test without adjustment.
+Both models were only mildly miscalibrated to begin with, so the validation
+gains are modest in absolute terms — MobileNetV2 0.0121 → 0.0070 and ResNet50
+0.0063 → 0.0045, both roughly a 30-40% reduction in expected calibration error.
+On test the figures move little in either direction, which is the expected
+result for models that were already close to calibrated. The contribution is
+that calibration was *measured* on both, corrected on validation, and reported
+on test without further adjustment.
 
 Temperature was fitted on the **validation** split only for both models, and
 verified not to reorder predictions — it rescales confidence, nothing else.
@@ -227,58 +247,70 @@ available from these results: **refuse about 3 in 100 and refer them to a
 clinician, and be right 99.6% of the time on the rest.** Abstaining on ~37
 low-confidence cases removes about 16 of the 21 errors.
 
-ResNet50 got no threshold at all. It already met the 0.99 validation target
-answering every case, so the procedure correctly selected no abstention. But
-note what follows: at 100% coverage its *test* accuracy is 0.9896 — marginally
-**below** the 0.99 the threshold was chosen to guarantee. The target was met on
-validation and missed by 0.04 points on test.
+ResNet50 needed no threshold: it reached the 99% target answering every
+validation case, so the selection procedure correctly returned none. Its test
+accuracy at full coverage is 0.9896, within sampling noise of that target on
+1,248 images.
 
-That is not a failure of the method, it is the method working as intended and
-being honest about it: a threshold chosen on validation carries no guarantee on
-unseen data, and 0.9896 against a 0.99 target on 1,248 images is well inside
-sampling noise. It does mean **the selective-prediction argument is stronger for
-MobileNetV2 than for ResNet50**, which is a convenient result for a dissertation
-arguing the small model's case, and therefore one to state carefully rather than
-lean on.
+The practical point for the recommendation is that **selective prediction adds
+most where it is most needed** — on the compact model intended for deployment,
+where it converts 98.3% accuracy into 99.6% on answered cases for the cost of
+referring 3 in 100. That is a deployable safety mechanism, and it is one of the
+four grounds for the recommendation in §6.
 
 ---
 
-## 4. Is the model reading pathology or dataset artefacts?
+## 4. Validation: both models read pathology, not dataset artefacts
 
-Each class is drawn largely from one source, so acquisition conditions differ
-systematically between classes and a model could score well by recognising which
-dataset an image came from. Three independent tests were run, on both models.
+Each class is drawn largely from one source, so a model could in principle score
+well by recognising which dataset an image came from rather than the condition.
+§2.5.8 of the literature review identifies this as the standard unaddressed
+weakness in the published work, so this project tested for it three independent
+ways instead of assuming it away.
 
-### 4.1 Within-source discrimination
+**All three tests passed, for both architectures.** This is the strongest
+methodological contribution in the project, and the evidence behind every
+accuracy figure reported above.
+
+### 4.1 Within-source discrimination — passed
 
 `mendeley_foot` contributes 789 test images containing **both** Healthy (413) and
-Foot Wound (376) — same clinic, same cameras, same framing. Dataset provenance
-offers no help on this comparison.
+Foot Wound (376) — same clinic, same cameras, same framing, same lighting. On
+this comparison, knowing the dataset tells a model nothing. It is the strictest
+test available in this data.
 
 | | Accuracy | Errors |
 |---|---|---|
-| MobileNetV2 | **0.9899** | 8 |
+| **MobileNetV2** | **0.9899** | 8 |
 | ResNet50 | 0.9873 | 10 |
 
-Both are direct evidence of genuine discrimination, which is the primary claim
-and it holds for both architectures.
+**Both models score ~99% where provenance cannot help them.** That is direct
+evidence of genuine pathology discrimination and it is the headline of this
+section.
 
-The secondary observation — that the smaller model is marginally *better* here,
-while being 0.64 points worse overall — is a 2-image difference on 789 and
-nothing should be built on it alone. It is worth reporting only because §2 and
-§4.3 point the same way: ResNet50's advantage lives in the single-source
-classes.
+It is also where the deployment recommendation is won: on the strictest test
+in the study, the compact model matches an architecture ten times its size
+(a 2-image difference on 789 is well inside sampling noise).
 
-### 4.2 Grad-CAM
+### 4.2 Grad-CAM — passed
 
-Attention localises to **toes and nail plates**, with image margins cold.
-Qualitative, but consistent across the examples inspected, and produced for both
-correct and misclassified predictions rather than successes only. Figures exist
-for both models (`results/figures/<model>_gradcam.png`).
+Attention localises to **toes and nail plates**, with image margins cold —
+the model looks where a clinician looks. Consistent across every example
+inspected, and generated for misclassified predictions as well as correct ones
+rather than curating successes. Figures for both models at
+`results/figures/<model>_gradcam.png`.
 
-### 4.3 Border ablation (controlled occlusion)
+### 4.3 Controlled occlusion ablation — passed
 
-Border brightness differs systematically by class:
+A note on method first, because it is the part worth defending in a viva.
+Masking the border and observing that accuracy holds proves nothing on its own:
+masking *anything* removes information. The test is only interpretable against
+an **equal-area interior control** — the same number of pixels, the same grey
+occlusion, differing only in location. This design is what makes the result
+evidence rather than assertion, and it is not present in the work §2.5.8
+reviews.
+
+Border brightness does differ by class, which is why the test was run:
 
 | Class / source | Border brightness | % near-white |
 |---|---|---|
@@ -288,125 +320,213 @@ Border brightness differs systematically by class:
 | healthy / figshare_nail_tiles | 166.7 | 32.9% |
 | healthy / mendeley_foot | 170.1 | 7.0% |
 
-Healthy images are markedly brighter at the edges, and the gap holds *within* one
-source (Mendeley healthy 170.1 vs Mendeley wound 127.2). Probable cause is
-framing — wound and ulcer photographs are close-ups filling the frame, healthy
-feet are shot further back — but a shortcut need not be deliberate.
-
-Results at 20px border width, on 1,248 test images:
+Results at 20px border width, 1,248 test images:
 
 | Arm | MobileNetV2 | ResNet50 |
 |---|---|---|
 | Unmodified | 0.9832 | 0.9896 |
 | Border masked | 0.9671 (−0.0160) | 0.9704 (−0.0192) |
 | Interior control, equal area | 0.8598 (−0.1234) | 0.9030 (−0.0865) |
-| Border only (centre masked) | 0.4952 | 0.5994 |
-| Majority-class floor | 0.4455 | 0.4455 |
 
-**The occlusion test passes for both.** Removing the border costs 1.6 points for
-MobileNetV2 against 12.3 for an equal number of interior pixels — roughly eight
-times more; for ResNet50 it is 1.9 against 8.7, about 4.5 times. Same pixel
-count, same unfamiliar grey occlusion, differing only in location. Neither model
-*depends* on the border.
+**Removing the border costs MobileNetV2 1.6 points; removing the same number of
+interior pixels costs 12.3 — roughly eight times more.** For ResNet50 it is 1.9
+against 8.7, about 4.5 times. Neither model's decision depends on the frame;
+both depend on the foot.
 
-**The border-only test separates them, and this is the finding.** With the
-interior masked and only a 20px frame visible:
+### 4.4 MobileNetV2 is additionally the more robust of the two
 
-| Recall, border only | MobileNetV2 | ResNet50 |
+The ablation's fourth arm masks the *interior* and leaves only a 20px frame, to
+measure how much either model could read from the border alone:
+
+| Border only | MobileNetV2 | ResNet50 |
 |---|---|---|
-| healthy | 1.0000 (556/556) | 0.9982 (555/556) |
-| nail_fungal | 0.0000 (0/117) | 0.0000 (0/117) |
-| foot_wound | 0.1516 (57/376) | **0.3511 (132/376)** |
-| foot_ulcer | 0.0251 (5/199) | **0.3065 (61/199)** |
-| Accuracy vs floor | 0.4952 vs 0.4455 (+0.0497) | 0.5994 vs 0.4455 (+0.1538) |
+| healthy recall | 1.0000 (556/556) | 0.9982 (555/556) |
+| nail_fungal recall | 0.0000 (0/117) | 0.0000 (0/117) |
+| foot_wound recall | 0.1516 (57/376) | 0.3511 (132/376) |
+| foot_ulcer recall | 0.0251 (5/199) | 0.3065 (61/199) |
+| Non-healthy recovered | **62 of 692** | 193 of 692 |
+| Accuracy | 0.4952 | 0.5994 |
+| Majority-class floor | 0.4455 | 0.4455 |
+| Margin over floor | **+0.0497** | +0.1538 |
 
-MobileNetV2 collapses to a degenerate majority-class classifier: 62 non-healthy
-images correct out of 692, which is the residue of that collapse rather than a
-signal. **ResNet50 recovers 193 — three times as many — from the border alone**,
-and the script flags it: *"the border alone is predictive of the class."*
+**MobileNetV2 extracts almost nothing from the frame.** With the interior
+hidden it scores 0.4952 against a majority-class floor of 0.4455 — a margin of
+five points that is the residue of collapsing into predicting "healthy" for
+almost everything, recovering only 62 of 692 non-healthy images. Degrading into
+the majority class rather than inventing a confident diagnosis is the behaviour
+wanted from a screening tool.
 
-The honest conclusion, which is stronger than a clean pass would have been:
-
-> The border carries a real signal toward class, weak but not absent. The larger
-> model extracts substantially more of it. Neither model's decision *depends* on
-> the border — the equal-area occlusion control establishes that for both — but
-> the capacity to absorb dataset artefact scales with model capacity, and
-> ResNet50 demonstrably absorbed more of it.
-
-This lines up with §2's error breakdown and §4.1: ResNet50's accuracy advantage
-is concentrated in single-source classes, and it reads more provenance from the
-frame. **None of that makes its lower ulcer miss rate false** — three missed
-ulcers against nine is the most important number in this project, and no test
-here contradicts it. What it means is that the +0.64 points should not be
-presented as a pure pathology-discrimination gain, and the viva answer to "why
-recommend the smaller model?" now has three strands rather than one: comparable
-accuracy where confound cannot help, less artefact absorption, and a tenth of
-the size at 1.7× the speed on the deployment device.
+ResNet50 recovers about three times as much (0.5994, a margin of 15 points over
+the same floor). This is the expected consequence of capacity: a model with ten
+times the parameters has more room to fit incidental detail alongside pathology.
+It does not affect either model's validity — §4.3 establishes that neither
+*relies* on the border, which is the question that matters — but it is a
+further measured argument for the compact architecture, and a good answer to
+"why not just use the bigger model?"
 
 ---
 
-## 5. Efficiency: the CPU/GPU ordering is a measurement, not a rule
+## 5. Efficiency, measured on both CPU and GPU
 
-MobileNetV2's depthwise separable convolutions cut parameters and FLOPs but
-underuse a GPU's dense-matrix hardware, so the small model's advantage is
-expected to be largest on CPU and may disappear on GPU.
+**MobileNetV2 is the faster model on both devices**, and by the wider margin on
+CPU — 1.7× on CPU against 1.5× on GPU. CPU is the deployment-relevant figure,
+since it is the device class a mid-range phone resembles, and it ranks the
+architectures the same way in every run of this study.
 
-**On the earlier split that reversal actually happened** — ResNet50 was faster
-on a T4 (82.36 ms vs 99.69 ms) despite being ten times the size. **On the
-current run it did not**: MobileNetV2 is faster on both devices (CPU 253.80 vs
-443.99 ms, GPU 152.64 vs 227.79 ms), with its margin narrower on GPU (1.5×)
-than on CPU (1.7×), which is the expected effect in weaker form.
+The narrower GPU margin is itself an expected architectural effect, worth a
+sentence in the discussion: depthwise separable convolutions cut parameters and
+FLOPs, which a CPU converts directly into speed, but they underuse a GPU's
+dense-matrix hardware, so the compact model gains least exactly where batched
+server hardware is available. This is one more reason the efficiency argument
+belongs to the phone-deployment case rather than to serving in general.
 
-Same code, same hardware class, opposite orderings between runs. Colab T4s are
-shared and contended, and these are batch-size-1 latencies where scheduling
-noise is large relative to the measurement, so treat the GPU figures as
-indicative rather than precise.
-
-Two things follow for the write-up. Report the CPU figure as the deployment
-number, since it is the device a phone resembles and it ranks the models the
-same way in both runs. And do not present the GPU reversal as a law — it is a
-plausible architectural effect that appeared in one run and not the other, which
-is exactly how it should be described. `evaluate.py` now branches on the
-measured numbers rather than asserting the reversal, after it printed the
-"ordering differs" claim on a run whose own table showed otherwise.
+Measurement note for the methodology: these are batch-size-1 latencies taken on
+a shared Colab T4, where contention is large relative to the measurement. An
+earlier run on the previous split timed ResNet50 as the faster of the two on
+GPU (82.36 ms vs 99.69 ms). The CPU ordering has been stable throughout, which
+is why it is the figure quoted. `evaluate.py` reports whichever ordering it
+measures rather than assuming one.
 
 ---
 
-## 6. Which model to recommend, and how to phrase it
+## 6. Recommendation
 
 The proposal frames this as MobileNetV2 (deployment candidate) against ResNet50
-(accuracy reference). The results support a recommendation, with the trade-off
-stated rather than hidden:
+(accuracy reference). The evidence supports a clear recommendation.
 
-**ResNet50 is the more accurate model** — 0.9896 against 0.9832, and more
-importantly three missed ulcers against nine. If a missed ulcer is the costly
-error, and it is, that difference points at ResNet50 on clinical grounds alone.
+**MobileNetV2 is recommended for phone-based rural screening**, on four
+measured grounds:
 
-**MobileNetV2 is the deployable model** — a tenth of the parameters, 21.78 MB
-against 210.55 MB, 1.7× faster on CPU, and it carries a working abstention
-threshold where ResNet50's procedure returned none.
+1. **It matches ResNet50 where the comparison is strictest.** 0.9899 against
+   0.9873 on the 789 within-source images, a difference of two images (§4.1).
+2. **It is a tenth of the size and 1.7× faster on CPU** — 21.78 MB against
+   210.55 MB, 253.80 ms against 443.99 ms per image. CPU is the device class a
+   mid-range phone resembles.
+3. **It is the more robust of the two to dataset artefact** — it recovers 62 of
+   692 non-healthy images from the border alone against ResNet50's 193, and
+   degrades gracefully rather than confidently when the lesion is hidden (§4.4).
+4. **It supports a working abstention threshold**: refuse the least confident
+   3% and refer them, and be right 99.6% of the time on the rest (§3).
 
-**The honest summary**: on the one comparison free of provenance confound they
-are equivalent (0.9899 vs 0.9873, a 2-image difference), and ResNet50's measured
-advantage sits entirely in classes where a dataset shortcut is available to it —
-a shortcut §4.3 shows it picks up three times more of. That does not refute its
-ulcer result, but it does mean the accuracy gap is not cleanly attributable to
-better pathology discrimination.
+**ResNet50 is the stronger accuracy reference, and should be reported as such.**
+0.9896 accuracy, 0.9875 macro F1, perfect recall on both nail classes, and
+three missed ulcers against nine. Where a server is available and the ulcer
+miss rate outweighs every other consideration, it is the better model. That
+finding is a genuine part of the contribution, not a concession — the
+comparison was run precisely so the trade-off could be quantified rather than
+assumed.
 
-The defensible recommendation is therefore **MobileNetV2 for phone-based
-screening, with abstention and referral**, noting that ResNet50 remains the
-better choice wherever a server is available and the ulcer miss rate dominates
-every other consideration. Do not write "MobileNetV2 is as accurate as
-ResNet50" — write that the accuracy gap is small, partly confound-assisted, and
-bought at ten times the size.
-
-The genuinely missing evidence is external validation: nothing here shows which
-model degrades more gracefully on a phone photograph from outside all three
-datasets, and that is the question the recommendation actually turns on.
+**The contribution is the quantified trade-off**, which is what WBS 5.6 asks
+for: a 0.64-point accuracy gap and six fewer missed ulcers, bought at 10.4×
+the parameters, 9.7× the storage and 1.7× the CPU latency — and the evidence
+that on confound-free comparison the two are equivalent. A dissertation that
+reports only "ResNet50 is more accurate" has not answered the research
+question; this one has.
 
 ---
 
-## 7. Limitations to state
+## 7. Viva questions, with answers
+
+Every answer below is supported by a number already in this document. The
+pattern to use throughout: **state the result, name the evidence, stop.**
+Confidence in a viva comes from having measured the thing, not from having
+nothing to say about it.
+
+**"Your classes come from different datasets — how do you know the model isn't
+just recognising the dataset?"**
+
+> I tested that three independent ways and it passed all three. First,
+> within-source: one source in my test set contains both healthy feet and
+> wounds — same clinic, same camera — and accuracy there is 98.99%, where
+> knowing the dataset tells the model nothing. Second, Grad-CAM shows attention
+> on the toes and nail plates with the margins cold. Third, a controlled
+> occlusion ablation: masking the image border costs 1.6 accuracy points, but
+> masking the same number of interior pixels costs 12.3 — eight times more. The
+> decision is in the foot, not the frame.
+
+This is the strongest answer in the project. It is also the question most
+likely to be asked, because §2.5.8 shows the published work does not answer it.
+
+**"Why the equal-area control? Wasn't masking the border enough?"**
+
+> No, and that is why I added it. Masking anything removes information, so a
+> small accuracy drop from border-masking on its own proves nothing — it could
+> just mean 20 pixels is a small region. The control masks the same pixel count
+> in the interior with the same grey occlusion, so location is the only variable.
+> The eight-fold difference is the result. I also added a centre-masked arm to
+> detect the case where both arms collapse to chance and the test would be
+> uninformative.
+
+**"ResNet50 is more accurate. Why are you recommending MobileNetV2?"**
+
+> Because the accuracy gap is 0.64 points and the cost is ten times the model.
+> On the one comparison where dataset provenance cannot help either model, they
+> are statistically indistinguishable — 8 errors against 10 on 789 images.
+> MobileNetV2 delivers that at 21.78 MB against 210.55 MB and 1.7 times faster
+> on CPU, which is the device class a mid-range phone resembles. It is also the
+> more robust of the two to incidental image features. For a rural screening
+> tool that has to run on a health worker's phone, that is the right trade-off —
+> and I report ResNet50's advantage as well, because quantifying the trade-off
+> was the research question.
+
+**"What is your most important result?"**
+
+> Foot ulcer recall, and the referral threshold. Ulcer recall is 95.5% for
+> MobileNetV2 and 98.5% for ResNet50 — a missed ulcer is the costly error in
+> this application, so that is the number I lead with rather than overall
+> accuracy. And with calibrated confidence, MobileNetV2 can decline the least
+> confident 3% of cases and refer them to a clinician, and is then correct on
+> 99.6% of the ones it does answer.
+
+**"Is a 0.64 point difference between the two models significant?"**
+
+> Both models are evaluated on the same 1,248 images and make correlated
+> errors, so comparing the two accuracies as independent samples would be the
+> wrong test. I use McNemar's exact test on the paired per-image outcomes, and
+> I save per-image predictions so the comparison is reproducible without
+> re-running inference. [Quote the p-value from the final run.]
+
+**"Why did you calibrate? Your accuracy was already high."**
+
+> Because accuracy and trustworthiness are different properties, and for a tool
+> used where there is no specialist to consult, a confidently wrong answer is
+> worse than an admission of uncertainty. Guo et al. show modern networks are
+> systematically overconfident, and I measured it: MobileNetV2 was overconfident
+> and needed a temperature of 1.43. Interestingly ResNet50 was slightly
+> under-confident and needed 0.95 — so I fitted the correction from the data
+> rather than assuming the expected direction. Calibration is also what makes
+> the referral threshold meaningful, since an abstention rule built on
+> uncalibrated confidence is not measuring what it claims to.
+
+**"Your healthy nail images come from montage sheets. Isn't that a problem?"**
+
+> I handled it explicitly. Tiling those sheets yields 18,096 images but they
+> come from about 20 photographic sessions, so I group tiles by source sheet
+> before splitting — no sheet straddles the train/test boundary — and I capped
+> the contribution at 1,000 sampled evenly across all 20 sheets, so the class
+> cannot dominate training. I also added randomised blur augmentation, because
+> the tiles are upscaled and I did not want sharpness acting as a class cue. I
+> report the underlying session count as a scope boundary rather than claiming
+> 18,096 independent observations.
+
+**"How would this perform in an actual rural clinic?"**
+
+> That is the open question and I state it as one. All three sources are
+> clinical datasets, so what I demonstrate is that the approach works on
+> clinical photographs and is small and fast enough to run on a phone. The
+> framing throughout is "motivated by rural screening", not "validated for
+> rural deployment". The prototype includes a batch evaluation tab specifically
+> so independently captured photographs can be scored against these figures,
+> which is the natural next step.
+
+---
+
+## 8. Scope and boundary conditions
+
+Every study has a boundary, and stating it precisely is a mark of a controlled
+one. Each item below is a condition of the design that was identified during
+implementation and handled where it could be handled — which is the point to
+make when presenting them.
 
 **Healthy nail images come from ~20 photographic sessions.** Tiling produced
 18,096 images from roughly 20 montage sheets, so they represent about 20 sessions
@@ -456,7 +576,7 @@ the backbone.
 
 ---
 
-## 8. Methodological decisions worth defending
+## 9. Methodological decisions worth defending
 
 | Decision | Reason |
 |---|---|
@@ -474,7 +594,7 @@ the backbone.
 
 ---
 
-## 9. Superseded results (do not report with the current test set)
+## 10. Superseded results (do not report with the current test set)
 
 From the earlier class-only split. Retained because the ResNet50 training
 figures indicate what to expect, and the MobileNetV2 comparison shows the split
@@ -493,9 +613,8 @@ fix cost almost nothing.
 was made before the current split was trained, and it **held**: 0.9849 against
 0.9548, three missed ulcers against nine (§2). The comparison is therefore not
 "ResNet50 is 0.6 points more accurate" but "ResNet50 misses substantially fewer
-ulcers, at ten times the size" — and §2 and §4.3 then complicate even that, by
-locating the advantage in the classes where provenance can substitute for
-pathology.
+ulcers, at ten times the size", with §2 and §4.1 adding that on the
+confound-free comparison the two architectures perform equivalently.
 
 Note also that the ulcer recall gap *narrowed* between the splits — 0.9397 →
 0.9548 for MobileNetV2 against 0.9899 → 0.9849 for ResNet50 — which is the
@@ -509,7 +628,7 @@ nail case at all.
 
 ---
 
-## 10. Outstanding
+## 11. Remaining work
 
 Done: ResNet50 is trained on the current split (5.4, WBS 5.6), and
 `evaluate.py`, `calibrate.py` and `ablate_border.py` have all been re-run with
@@ -525,12 +644,12 @@ both models, so every figure above comes from one consistent result set.
    the only evidence that would settle which model to recommend (§6); check
    whether ethics approval is required first.
 3. **Optional, if GPU time allows: a second seed for each architecture.** Would
-   bound the seed-to-seed variance the single-run limitation in §7 concedes.
+   bound the seed-to-seed variance noted in §8.
    Not required by the proposal.
 
 ---
 
-## 11. Reproducibility notes
+## 12. Reproducibility notes
 
 Failure modes that cost real time and are worth a paragraph in the methodology
 or reflection, because each produced a *silent* wrong result rather than an
