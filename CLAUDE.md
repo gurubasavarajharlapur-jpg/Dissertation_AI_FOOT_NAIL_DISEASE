@@ -24,11 +24,24 @@ python src/download_data.py            # fetch into data/raw/
 python src/inspect_data.py             # audit data/raw/; writes results/metrics/
 python src/inspect_data.py --dir data/raw/figshare_nail --sample 500 --no-hash
 
-python src/preprocessing.py            # Phase 2 — stub
-python src/train.py --model mobilenetv2  # Phase 3 — stub
-python src/evaluate.py                 # Phase 5 — stub
-streamlit run src/prototype/app.py     # Phase 6 — stub
+python src/extract_montages.py         # tile the Figshare contact sheets
+python src/preprocessing.py            # build data/processed/ + the split CSVs
+python src/preprocessing.py --dry-run  # show what it would do, write nothing
+python src/train.py --model mobilenetv2  # two-stage transfer learning
+python src/train.py --model resnet50
+python src/evaluate.py                 # test metrics, Grad-CAM, comparison
+python src/calibrate.py                # temperature scaling + referral threshold
+python src/ablate_border.py --model mobilenetv2   # occlusion confound test
+python src/compare_models.py           # paired significance, from saved CSVs
+streamlit run src/prototype/app.py     # two-tab screening prototype
+
+python src/colab_sync.py status        # Colab: what is saved to Drive
+python src/colab_sync.py save --what models results
 ```
+
+`compare_models.py` is the only one that needs neither GPU nor TensorFlow — it
+reads `results/metrics/<model>_predictions.csv`, so the statistics can be redone
+in seconds without re-running inference.
 
 There is no test suite or linter configured yet.
 
@@ -44,14 +57,21 @@ rather than mid-training.
 `sys.path.insert(0, <project root>)` then `from src import config`, so it runs
 identically from the repo root, from `src/`, or from a notebook.
 
-**Phase-staged development.** `preprocessing.py`, `train.py`, `evaluate.py` and
-`prototype/app.py` currently exist as stubs whose docstrings specify the planned
-design in detail. They print that plan and exit 1. The user wants to review and
-understand each phase before it is built — **do not implement ahead of the
-agreed phase**, and check in between phases.
+**All six phases are built** (1 setup → 2 preprocessing → 3 MobileNetV2 →
+4 ResNet50 → 5 evaluation → 6 prototype). Both models are trained on the final
+class × source stratified split and evaluated in one run. What remains is
+evidence-gathering and dissertation writing, not implementation.
 
-Phase order: 1 setup (done) → 2 preprocessing → 3 MobileNetV2 → 4 ResNet50 →
-5 evaluation → 6 prototype.
+**Check in before starting anything substantial.** The user reviews each step
+before it is built and has asked for this explicitly. That applied to the phases
+and it still applies now — do not add scope unasked.
+
+**Results live in two documents, and both must stay true to the runs.**
+`docs/findings_and_analysis.md` holds every measured figure with the reasoning
+behind it, written to be quoted directly into the dissertation;
+`docs/implementation_requirements.md` traces proposal requirements to code. When
+a run produces new numbers, update them — and never soften or drop a measured
+result. The framing can be results-forward; the figures are not negotiable.
 
 ## Constraints that are easy to get wrong
 

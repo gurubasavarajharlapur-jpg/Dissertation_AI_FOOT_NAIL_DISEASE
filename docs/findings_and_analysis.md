@@ -13,9 +13,10 @@ decision. Written to be quoted from directly when drafting the dissertation.
   provenance** (§4): 98.99% accuracy within a single source, Grad-CAM attention
   on toes and nail plates, and a controlled occlusion ablation with an
   equal-area interior control.
-- **MobileNetV2 matches ResNet50 on the strictest comparison available** — a
-  two-image difference on 789 within-source images — at a tenth of the
-  parameters and 1.7× the CPU speed (§2, §6).
+- **No statistically significant accuracy difference between the two
+  architectures** — McNemar's exact test, p = 0.15, with any real difference
+  bounded at +1.4 points at 95% confidence. MobileNetV2 reaches that at a tenth
+  of the parameters and roughly twice the CPU speed (§2, §6).
 - **Calibrated confidence with a referral threshold**: decline the least
   confident 3% of cases and refer them, and be correct on **99.6%** of the rest
   (§3).
@@ -170,17 +171,55 @@ comes from the single-class sources. Both facts are worth reporting, and
 together they are the quantitative basis for recommending MobileNetV2 for
 deployment (§6).
 
-### Is the +0.64 point difference statistically established?
+### Is the +0.64 point difference statistically established? **No.**
 
 Both models are scored on the *same* 1,248 images and make correlated errors, so
 the two accuracies cannot be compared as though they were independent samples.
-The correct test is McNemar's exact test on the paired per-image outcomes, which
-`evaluate.py` now computes and prints, writing
-`results/metrics/<model>_predictions.csv` alongside it.
+The correct test is McNemar's exact test on the paired per-image outcomes.
 
-This is a methodological strength worth pointing at: reporting a difference
-between two models without a paired test is a common weakness in the applied
-literature, and this study does not have it.
+> **The two models disagree on 24 of 1,248 images — 16 in ResNet50's favour, 8
+> in MobileNetV2's. McNemar's exact test gives p = 0.1516. The difference is
+> not statistically significant at the 5% level.**
+
+A paired bootstrap confidence interval (10,000 resamples) puts the accuracy
+difference at **+0.0064, 95% CI [−0.0016, +0.0144]**. The interval spans zero,
+agreeing with the p-value, and bounds the practical size of any real difference
+at roughly 1.4 accuracy points.
+
+**This is the central quantitative result of the comparison, and it supports
+the recommendation directly**: on this test set, MobileNetV2 is not
+demonstrably less accurate than an architecture ten times its size. Stated
+precisely for the dissertation —
+
+> No statistically significant difference in overall accuracy was found between
+> MobileNetV2 and ResNet50 (McNemar's exact test, p = 0.15, n = 1,248), with the
+> accuracy difference bounded at +1.4 points at 95% confidence. MobileNetV2
+> achieves this at 9.6% of the parameters and roughly half the CPU latency.
+
+Two points of care in phrasing. Failing to establish a difference is not the
+same as proving the models identical — the correct claim is "no significant
+difference was found", not "the models are equivalent". And a larger test set
+could resolve a real difference this one cannot; the confidence interval is the
+honest expression of that, which is why it is reported alongside the p-value.
+
+Reporting a difference between two models without a paired test is a common
+weakness in the applied literature reviewed in §2.5.8. This study does not have
+it.
+
+### Per-class and per-source significance
+
+`src/compare_models.py` repeats the paired test within each class and each
+source, from the saved prediction CSVs — no GPU, no re-run of inference:
+
+```bash
+python src/compare_models.py
+```
+
+The class that matters is **Foot Ulcer**, where MobileNetV2 misses nine and
+ResNet50 three. That is a separate question from overall accuracy and deserves
+its own test rather than inheriting the overall verdict: a model can be better
+overall and no better on the class that decides whether the tool is safe.
+Quote that p-value in the discussion alongside the recall figures.
 
 ### Efficiency
 
@@ -188,11 +227,13 @@ literature, and this study does not have it.
 |---|---|---|---|
 | Parameters | 2,263,108 | 23,595,908 | 10.4× |
 | Size on disk | 21.78 MB | 210.55 MB | 9.7× |
-| Inference, CPU | **253.80 ms** | 443.99 ms | 1.7× |
-| Inference, GPU | **152.64 ms** | 227.79 ms | 1.5× |
+| Inference, CPU | **248.29 ms** | 460.56 ms | 1.9× |
+| Inference, GPU | **155.39 ms** | 231.64 ms | 1.5× |
 
-Batch size 1, median of 50 runs. CPU is the figure that speaks to phone
-deployment.
+Batch size 1, median of 50 runs, on a Colab Tesla T4. CPU is the figure that
+speaks to phone deployment. Latency varies a few percent between runs on shared
+hardware (a repeat run measured 253.80 / 443.99 ms on CPU); the ordering and
+the approximate ratio are stable, the third significant figure is not.
 
 ---
 
@@ -369,7 +410,7 @@ further measured argument for the compact architecture, and a good answer to
 ## 5. Efficiency, measured on both CPU and GPU
 
 **MobileNetV2 is the faster model on both devices**, and by the wider margin on
-CPU — 1.7× on CPU against 1.5× on GPU. CPU is the deployment-relevant figure,
+CPU — 1.9× on CPU against 1.5× on GPU. CPU is the deployment-relevant figure,
 since it is the device class a mid-range phone resembles, and it ranks the
 architectures the same way in every run of this study.
 
@@ -397,10 +438,14 @@ The proposal frames this as MobileNetV2 (deployment candidate) against ResNet50
 **MobileNetV2 is recommended for phone-based rural screening**, on four
 measured grounds:
 
-1. **It matches ResNet50 where the comparison is strictest.** 0.9899 against
-   0.9873 on the 789 within-source images, a difference of two images (§4.1).
-2. **It is a tenth of the size and 1.7× faster on CPU** — 21.78 MB against
-   210.55 MB, 253.80 ms against 443.99 ms per image. CPU is the device class a
+1. **There is no statistically significant accuracy difference between the two
+   models.** McNemar's exact test on the paired per-image outcomes gives
+   p = 0.15, with the difference bounded at +1.4 accuracy points at 95%
+   confidence (§2). The same holds on the strictest comparison available —
+   0.9899 against 0.9873 on the 789 within-source images, a difference of two
+   images (§4.1).
+2. **It is a tenth of the size and 1.9× faster on CPU** — 21.78 MB against
+   210.55 MB, 248.29 ms against 460.56 ms per image. CPU is the device class a
    mid-range phone resembles.
 3. **It is the more robust of the two to dataset artefact** — it recovers 62 of
    692 non-healthy images from the border alone against ResNet50's 193, and
@@ -417,11 +462,19 @@ comparison was run precisely so the trade-off could be quantified rather than
 assumed.
 
 **The contribution is the quantified trade-off**, which is what WBS 5.6 asks
-for: a 0.64-point accuracy gap and six fewer missed ulcers, bought at 10.4×
-the parameters, 9.7× the storage and 1.7× the CPU latency — and the evidence
-that on confound-free comparison the two are equivalent. A dissertation that
-reports only "ResNet50 is more accurate" has not answered the research
-question; this one has.
+for: a 0.64-point accuracy gap that does not reach significance, six fewer
+missed ulcers, bought at 10.4× the parameters, 9.7× the storage and 1.9× the
+CPU latency. A dissertation that reports only "ResNet50 scored higher" has not
+answered the research question — it has not established that the difference is
+real, nor priced it. This one does both.
+
+One honest qualification to carry into the discussion. Failing to establish a
+difference is not the same as establishing equivalence, and with 1,248 test
+images this study cannot resolve a difference smaller than roughly 1.4
+accuracy points. The recommendation does not depend on the two models being
+identical — it depends on the difference being small enough that a tenfold
+reduction in size is worth it, and 1.4 points is the upper bound on how large
+that difference could be.
 
 ---
 
@@ -462,8 +515,8 @@ likely to be asked, because §2.5.8 shows the published work does not answer it.
 > Because the accuracy gap is 0.64 points and the cost is ten times the model.
 > On the one comparison where dataset provenance cannot help either model, they
 > are statistically indistinguishable — 8 errors against 10 on 789 images.
-> MobileNetV2 delivers that at 21.78 MB against 210.55 MB and 1.7 times faster
-> on CPU, which is the device class a mid-range phone resembles. It is also the
+> MobileNetV2 delivers that at 21.78 MB against 210.55 MB and nearly twice as
+> fast on CPU, which is the device class a mid-range phone resembles. It is also the
 > more robust of the two to incidental image features. For a rural screening
 > tool that has to run on a health worker's phone, that is the right trade-off —
 > and I report ResNet50's advantage as well, because quantifying the trade-off
@@ -480,11 +533,27 @@ likely to be asked, because §2.5.8 shows the published work does not answer it.
 
 **"Is a 0.64 point difference between the two models significant?"**
 
-> Both models are evaluated on the same 1,248 images and make correlated
-> errors, so comparing the two accuracies as independent samples would be the
-> wrong test. I use McNemar's exact test on the paired per-image outcomes, and
-> I save per-image predictions so the comparison is reproducible without
-> re-running inference. [Quote the p-value from the final run.]
+> No, and I tested it rather than assuming either way. Both models are
+> evaluated on the same 1,248 images and make correlated errors, so comparing
+> the two accuracies as independent samples would be the wrong test. I used
+> McNemar's exact test on the paired per-image outcomes: the models disagree on
+> 24 images, 16 in ResNet50's favour and 8 in MobileNetV2's, which gives
+> p = 0.15. A paired bootstrap puts the difference at +0.64 points with a 95%
+> interval of −0.2 to +1.4, so it spans zero. I report that as "no significant
+> difference was found" rather than "the models are equivalent", because the
+> test cannot prove equivalence — but it does bound any real difference at
+> about 1.4 points, and that is the number the deployment trade-off is weighed
+> against.
+
+**"So is ResNet50's better ulcer recall real, or also noise?"**
+
+> That is the right follow-up, and it is a separate test — overall accuracy
+> cannot answer it, because a model can be better overall and no better on the
+> class that matters. I ran the same paired test restricted to the 199 ulcer
+> images. [Quote the per-class p-value from `python src/compare_models.py`.]
+> Either way I report the recall figures and the count, nine missed against
+> three, because for a screening tool the count is what a clinician cares
+> about and the significance test is what an examiner cares about.
 
 **"Why did you calibrate? Your accuracy was already high."**
 
@@ -630,15 +699,15 @@ nail case at all.
 
 ## 11. Remaining work
 
-Done: ResNet50 is trained on the current split (5.4, WBS 5.6), and
-`evaluate.py`, `calibrate.py` and `ablate_border.py` have all been re-run with
-both models, so every figure above comes from one consistent result set.
+Done: ResNet50 is trained on the current split (5.4, WBS 5.6); `evaluate.py`,
+`calibrate.py` and `ablate_border.py` have all been run with both models; and
+the overall paired significance test is measured. Every figure above comes
+from one consistent result set.
 
-1. **Re-run `evaluate.py` once more for the paired significance test.** The
-   McNemar test and the per-image prediction CSVs were added after the current
-   results were produced, so the p-value on the +0.64 point gap is not yet
-   measured. This is a few minutes of inference, no retraining, and it is the
-   first thing a supervisor will ask about the comparison.
+1. **Run `python src/compare_models.py`** to record the per-class and
+   per-source p-values, in particular the Foot Ulcer one. Seconds, on CPU, from
+   the saved prediction CSVs — no GPU and no re-run of inference. The overall
+   test is done (p = 0.1516, §2).
 2. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. The highest-value addition remaining, and
    the only evidence that would settle which model to recommend (§6); check
