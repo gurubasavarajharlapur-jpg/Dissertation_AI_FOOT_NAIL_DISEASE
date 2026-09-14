@@ -220,7 +220,8 @@ def measure_efficiency(model: keras.Model, model_name: str, runs: int = 50) -> d
     Batch size 1 is measured deliberately: the deployment story is one photo at
     a time on a health worker's phone, not a batched server workload.
 
-    Both devices are timed because they rank the architectures differently.
+    Both devices are timed because they need not rank the architectures the same
+    way, and which way they rank them is a result, not an assumption.
     MobileNetV2's depthwise separable convolutions cut parameters and FLOPs but
     leave a GPU's dense-matrix hardware underused, so on a GPU it can be the
     slower of the two despite being an order of magnitude smaller. CPU latency
@@ -562,12 +563,30 @@ def print_comparison(summaries: dict[str, dict]) -> pd.DataFrame:
                     f"({o['inference_ms_cpu']} ms vs {p['inference_ms_cpu']} ms)."
                 )
             if p.get("inference_ms_gpu") and o.get("inference_ms_gpu"):
-                message += (
-                    f"\nOn GPU the ordering differs ({o['inference_ms_gpu']} ms vs "
-                    f"{p['inference_ms_gpu']} ms): depthwise separable convolutions cut "
-                    f"FLOPs\nbut underuse dense-matrix hardware, so the lighter model's "
-                    f"advantage is a CPU one."
-                )
+                # Whether the GPU reverses the CPU ordering is a measurement, not
+                # a given: depthwise separable convolutions cut FLOPs but underuse
+                # dense-matrix hardware, so the lighter model's GPU advantage is
+                # much smaller than its CPU one and can vanish. Report what was
+                # actually timed rather than asserting the textbook case.
+                if o["inference_ms_gpu"] < p["inference_ms_gpu"]:
+                    message += (
+                        f"\nOn GPU the ordering reverses ({o['model']} "
+                        f"{o['inference_ms_gpu']} ms vs {p['inference_ms_gpu']} ms):\n"
+                        f"depthwise separable convolutions cut FLOPs but underuse "
+                        f"dense-matrix hardware,\nso the lighter model's advantage is a "
+                        f"CPU one. Quote the CPU figure for the phone case."
+                    )
+                else:
+                    message += (
+                        f"\nOn GPU the ordering holds ({o['model']} "
+                        f"{o['inference_ms_gpu']} ms vs {p['inference_ms_gpu']} ms, "
+                        f"{o['inference_ms_gpu'] / p['inference_ms_gpu']:.1f}x), but by a "
+                        f"smaller margin\nthan on CPU "
+                        f"({o['inference_ms_cpu'] / p['inference_ms_cpu']:.1f}x): depthwise "
+                        f"separable convolutions cut FLOPs but underuse\ndense-matrix "
+                        f"hardware, so batched GPU serving is where the small model gains "
+                        f"least."
+                    )
             print(message)
     return table
 
