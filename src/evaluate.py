@@ -55,6 +55,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src import config  # noqa: E402
+from src.stats import mcnemar  # noqa: E402
 
 import tensorflow as tf  # noqa: E402
 from tensorflow import keras  # noqa: E402
@@ -543,31 +544,6 @@ def save_predictions(model_name: str, frame: pd.DataFrame, y_true: np.ndarray,
     path = config.METRICS_DIR / f"{model_name}_predictions.csv"
     out.to_csv(path, index=False)
     return path
-
-
-def mcnemar(correct_a: np.ndarray, correct_b: np.ndarray) -> dict:
-    """McNemar's exact test on two models scored over the same images.
-
-    Only the images the models disagree on carry information: b is the count
-    the first gets right and the second wrong, c the reverse. Under the null
-    that the two are equally accurate, each disagreement is a fair coin, so the
-    exact binomial test on (b, b + c) is the p-value. Images both get right or
-    both get wrong are uninformative and are correctly discarded.
-
-    The exact test is used rather than the chi-square approximation because the
-    discordant count here is small (~20), which is where the approximation is
-    least reliable.
-    """
-    b = int(np.sum((correct_a == 1) & (correct_b == 0)))
-    c = int(np.sum((correct_a == 0) & (correct_b == 1)))
-    result = {"n": int(len(correct_a)), "only_first_correct": b,
-              "only_second_correct": c, "discordant": b + c}
-    if b + c == 0:
-        result["p_value"] = 1.0
-        return result
-    from scipy.stats import binomtest
-    result["p_value"] = float(binomtest(b, b + c, 0.5).pvalue)
-    return result
 
 
 def print_comparison(summaries: dict[str, dict],
