@@ -133,6 +133,15 @@ matters:
 | Foot Wound/Injury | 0.9787 | 0.9734 | 376 |
 | **Foot Ulcer** | **0.9548** | **0.9849** | 199 |
 
+Full per-class precision, recall and F1 for both models, for the results table:
+
+| Class | MNv2 P | MNv2 R | MNv2 F1 | RN50 P | RN50 R | RN50 F1 |
+|---|---|---|---|---|---|---|
+| Healthy Foot/Nail | 0.9982 | 0.9946 | 0.9964 | 0.9982 | 1.0000 | 0.9991 |
+| Nail Fungal Infection | 0.9667 | 0.9915 | 0.9789 | 0.9915 | 1.0000 | 0.9957 |
+| Foot Wound/Injury | 0.9761 | 0.9787 | 0.9774 | 0.9919 | 0.9734 | 0.9826 |
+| Foot Ulcer | 0.9645 | 0.9548 | 0.9596 | 0.9608 | 0.9849 | 0.9727 |
+
 Confusion matrices (rows true, columns predicted):
 
 ```
@@ -456,9 +465,14 @@ Validation: 1,261 images, 200 ulcers of which 11 are misclassified, 685 benign.
 |---|---|---|
 | **0.02** | **10 of 11 — 90.9%** | 2 of 685 — 0.3% |
 | 0.04 | 8 of 11 — 72.7% | 1 of 685 — 0.1% |
+| 0.06 | 7 of 11 — 63.6% | 1 of 685 — 0.1% |
 | 0.08 | 6 of 11 — 54.5% | 1 of 685 — 0.1% |
-| 0.10 | 6 of 11 — 54.5% | **0 of 685 — 0.0%** |
-| **0.20 (configured)** | **3 of 11 — 27.3%** | 0 of 685 — 0.0% |
+| **0.10 (adopted)** | **6 of 11 — 54.5%** | **0 of 685 — 0.0%** |
+| 0.14 | 4 of 11 — 36.4% | 0 of 685 — 0.0% |
+| 0.18 | 3 of 11 — 27.3% | 0 of 685 — 0.0% |
+| **0.20 (original)** | **3 of 11 — 27.3%** | 0 of 685 — 0.0% |
+| 0.24 | 2 of 11 — 18.2% | 0 of 685 — 0.0% |
+| 0.32 | 1 of 11 — 9.1% | 0 of 685 — 0.0% |
 | 0.38+ | 0 of 11 — 0.0% | 0 of 685 — 0.0% |
 
 **The configured 0.20 is too conservative, and this is the sweep's clear
