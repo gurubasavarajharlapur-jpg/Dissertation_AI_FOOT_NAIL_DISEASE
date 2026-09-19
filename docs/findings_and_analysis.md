@@ -10,24 +10,28 @@ decision. Written to be quoted from directly when drafting the dissertation.
 - **Foot ulcer recall 98.5% / 95.5%** — the clinically costly error, reported
   ahead of overall accuracy.
 - **Three independent tests confirm the models classify pathology, not dataset
-  provenance** (§4): 98.99% accuracy within a single source, Grad-CAM attention
+  provenance** (§5): 98.99% accuracy within a single source, Grad-CAM attention
   on toes and nail plates, and a controlled occlusion ablation with an
   equal-area interior control.
 - **No statistically significant accuracy difference between the two
   architectures** — McNemar's exact test, p = 0.15, with any real difference
   bounded at +1.4 points at 95% confidence. On the confound-free comparison
   they are indistinguishable (p = 0.77). MobileNetV2 reaches that at a tenth of
-  the parameters and roughly twice the CPU speed (§2, §6).
+  the parameters and roughly twice the CPU speed (§2, §7).
 - **Calibrated confidence with a referral threshold**: decline the least
   confident 3% of cases and refer them, and be correct on **99.6%** of the rest
   (§3).
+- **A safety-first referral policy, measured rather than asserted** (§4):
+  escalation fires on 2.1% of cases [1.4–3.0%] and restores the correct urgency
+  band to **7 of the 9 ulcers the classifier misreads**, while referring
+  **0 of 556 healthy** and **0 of 117 fungal** cases for urgent or prompt care.
 - A **working prototype** with screening and batch-evaluation tabs, Grad-CAM
   explanation and clinical guidance text (Phase 6).
 
 **Status of the numbers.** Both architectures are trained on the final
 (class × source stratified) split and evaluated, calibrated and ablated in a
 single run, so every figure here comes from one consistent result set. The
-earlier class-only-split figures are kept in §10, marked superseded.
+earlier class-only-split figures are kept in §11, marked superseded.
 
 ---
 
@@ -163,14 +167,14 @@ Errors by source. This is the table the deployment recommendation rests on:
 
 `mendeley_foot` is the only source contributing two classes, so it is the one
 comparison in which recognising the dataset cannot substitute for recognising
-the condition (§4.1). **There the two architectures are indistinguishable** — 8
+the condition (§5.1). **There the two architectures are indistinguishable** — 8
 errors against 10 on 789 images, a difference well inside sampling noise.
 
 So the compact model performs at the level of an architecture ten times its
 size on the strictest comparison available, and ResNet50's measured advantage
 comes from the single-class sources. Both facts are worth reporting, and
 together they are the quantitative basis for recommending MobileNetV2 for
-deployment (§6).
+deployment (§7).
 
 ### Is the +0.64 point difference statistically established? **No.**
 
@@ -343,11 +347,114 @@ The practical point for the recommendation is that **selective prediction adds
 most where it is most needed** — on the compact model intended for deployment,
 where it converts 98.3% accuracy into 99.6% on answered cases for the cost of
 referring 3 in 100. That is a deployable safety mechanism, and it is one of the
-four grounds for the recommendation in §6.
+four grounds for the recommendation in §7.
 
 ---
 
-## 4. Validation: both models read pathology, not dataset artefacts
+## 4. Safety-first triage, and what it costs
+
+The classifier reports appearance; the prototype has to recommend an action.
+Those are different problems, and the second one is asymmetric. A false
+referral costs an appointment. A missed ulcer can cost a limb: diabetic foot
+ulceration precedes roughly 80% of non-traumatic lower-limb amputations, and
+five-year mortality after a first diabetic foot ulcer is comparable to several
+common cancers (Armstrong et al., *NEJM* 2017).
+
+So the referral policy (`src/triage.py`) is deliberately biased toward
+referral, in three rules:
+
+1. **A serious condition holding real probability escalates the band even when
+   it is not the top class.** `P(foot_ulcer) ≥ 0.20` forces the urgent band;
+   `P(ulcer) + P(wound) ≥ 0.20` forces prompt.
+2. **Abstention never reassures.** Below the referral threshold the tool names
+   no condition and routes to a clinician — an inconclusive screening is not a
+   negative result.
+3. **Every result carries the override text**, a clean one included, naming
+   what should send someone to care regardless of what the tool said.
+
+The thresholds are a **design decision, not a model output** — the network
+never saw severity, infection, depth, perfusion or patient history — and they
+live in `config.py`. `config.validate()` refuses to start if a class has no
+band or if `foot_ulcer` maps to anything but urgent.
+
+### Measured on the test set (MobileNetV2, 1,248 images)
+
+A policy biased toward referral is only defensible if the bias has been priced.
+`src/audit_triage.py` measures it from the saved predictions.
+
+**Escalation fires on 26 of 1,248 cases — 2.1% [1.4%, 3.0%].** Twenty-one move
+prompt → urgent, five move self-care → routine. By true class: 7 ulcers, 14
+wounds, 4 healthy, 1 fungal.
+
+**The nine ulcers the classifier misreads:**
+
+| Outcome | Count |
+|---|---|
+| Escalated to **urgent** — correct urgency restored | **7 of 9** |
+| Referred at *prompt* — correct referral, slower than an ulcer needs | 2 of 9 |
+| Not referred at all | **0 of 9** |
+
+All nine are still routed to care. Seven have their urgency corrected *by
+escalation*; the two others were called Foot Wound at 99.3% and 99.9%
+confidence, where no probability-based rule can fire — they are referred only
+because wound already maps to prompt. Report those two honestly: referred, but
+told "within a few days" when an ulcer warrants 24 hours.
+
+**The cost, on this test set, is close to zero:**
+
+| Cost | Rate |
+|---|---|
+| Healthy referred (urgent/prompt) | **0 of 556** — 0.0% [0.0%, 0.7%] |
+| Nail fungal referred (urgent/prompt) | **0 of 117** — 0.0% [0.0%, 3.2%] |
+| True wounds raised to urgent | 14 of 376 — over-caution, not harm |
+
+Not one healthy or fungal case was sent for urgent or prompt care.
+
+### What escalation contributes, stated precisely
+
+| Policy | Sensitivity | Specificity |
+|---|---|---|
+| Refer on predicted class | 574/575 — 99.8% | 673/673 — 100% |
+| Refer on triage band | 574/575 — 99.8% | 673/673 — 100% |
+
+(*Serious* = ulcer or wound; the question is "does this person need to be
+seen?")
+
+**Referral coverage is unchanged.** That is not a failure of the policy, it is
+the correct reading of it: the class ulcers are misread as — wound — already
+triggers referral, so there was little coverage left to add. The single serious
+case neither policy refers is a wound confidently misread as fungal.
+
+**Escalation's contribution is urgency, not coverage**, and that is the claim
+to make:
+
+> The referral policy escalated 2.1% of cases [1.4–3.0%]. It restored the
+> correct urgency band to seven of the nine ulcers the classifier misread,
+> while referring no healthy or fungal case for urgent or prompt care. Overall
+> referral sensitivity was unchanged (574/575 under either policy), because the
+> class ulcers are misread as already triggers referral; the policy's
+> contribution is to the *timeframe* given, not to whether care is sought.
+
+That is a safety mechanism that measurably improves the handling of the
+clinically critical class at no measured cost — a stronger and more specific
+claim than "the prototype gives clinical guidance".
+
+### Limitations of this measurement
+
+- **Thresholds were set by judgement, not tuned.** 20% follows from the cost
+  asymmetry, not from a sweep. Tuning them is legitimate, but must be done on
+  validation: the test split has now been read, and re-tuning against it would
+  spend the one split this project has protected throughout.
+- **Zero false referrals is a test-set result, not a guarantee.** The upper
+  confidence bound is 0.7% for healthy cases, so up to about four in every 556
+  is consistent with this evidence.
+- **Two of nine ulcers still receive the slower timeframe.** No
+  probability-based escalation can fix a confident misclassification; that
+  needs a better classifier, not a better policy.
+
+---
+
+## 5. Validation: both models read pathology, not dataset artefacts
 
 Each class is drawn largely from one source, so a model could in principle score
 well by recognising which dataset an image came from rather than the condition.
@@ -453,14 +560,14 @@ wanted from a screening tool.
 ResNet50 recovers about three times as much (0.5994, a margin of 15 points over
 the same floor). This is the expected consequence of capacity: a model with ten
 times the parameters has more room to fit incidental detail alongside pathology.
-It does not affect either model's validity — §4.3 establishes that neither
+It does not affect either model's validity — §5.3 establishes that neither
 *relies* on the border, which is the question that matters — but it is a
 further measured argument for the compact architecture, and a good answer to
 "why not just use the bigger model?"
 
 ---
 
-## 5. Efficiency, measured on both CPU and GPU
+## 6. Efficiency, measured on both CPU and GPU
 
 **MobileNetV2 is the faster model on both devices**, and by the wider margin on
 CPU — 1.9× on CPU against 1.5× on GPU. CPU is the deployment-relevant figure,
@@ -483,7 +590,7 @@ measures rather than assuming one.
 
 ---
 
-## 6. Recommendation
+## 7. Recommendation
 
 The proposal frames this as MobileNetV2 (deployment candidate) against ResNet50
 (accuracy reference). The evidence supports a clear recommendation.
@@ -496,13 +603,13 @@ measured grounds:
    p = 0.15, with the difference bounded at +1.4 accuracy points at 95%
    confidence (§2). On the confound-free comparison the two are
    indistinguishable — 0.9899 against 0.9873 on 789 within-source images,
-   p = 0.77, with MobileNetV2 fractionally ahead (§4.1).
+   p = 0.77, with MobileNetV2 fractionally ahead (§5.1).
 2. **It is a tenth of the size and 1.9× faster on CPU** — 21.78 MB against
    210.55 MB, 248.29 ms against 460.56 ms per image. CPU is the device class a
    mid-range phone resembles.
 3. **It is the more robust of the two to dataset artefact** — it recovers 62 of
    692 non-healthy images from the border alone against ResNet50's 193, and
-   degrades gracefully rather than confidently when the lesion is hidden (§4.4).
+   degrades gracefully rather than confidently when the lesion is hidden (§5.4).
 4. **It supports a working abstention threshold**: refuse the least confident
    3% and refer them, and be right 99.6% of the time on the rest (§3).
 
@@ -516,7 +623,8 @@ comparison was run precisely so the trade-off could be quantified rather than
 assumed, and the ulcer trend is the most useful thing it surfaced.
 
 **The ulcer trend is addressed by design, not by ignoring it.** MobileNetV2 is
-the model that carries a working referral threshold (§3), and abstention is
+the model that carries a working referral threshold (§3) and the escalation
+policy measured in §4, and abstention is
 precisely the mechanism for a class the model is least certain about: decline
 the least confident cases and route them to a clinician. An examiner asking
 "but ResNet50 misses fewer ulcers" should get the trade-off *and* the
@@ -540,7 +648,7 @@ having a mitigation. All three hold.
 
 ---
 
-## 7. Viva questions, with answers
+## 8. Viva questions, with answers
 
 Every answer below is supported by a number already in this document. The
 pattern to use throughout: **state the result, name the evidence, stop.**
@@ -656,6 +764,34 @@ result?"**
 > the referral threshold meaningful, since an abstention rule built on
 > uncalibrated confidence is not measuring what it claims to.
 
+**"Your model misses about one ulcer in twenty. Is that safe to deploy?"**
+
+> That is the right question, and it is why the prototype does not just report
+> the top class. The referral policy escalates when a serious condition holds
+> meaningful probability even if it is not the most likely one, so a result of
+> "healthy 55%, ulcer 40%" is reported as urgent, not as healthy. I measured
+> what that does on the test set: escalation fires on 2.1% of cases, and of the
+> nine ulcers the classifier misreads, seven have their urgency corrected to
+> urgent and all nine are still routed to care. It referred no healthy or
+> fungal case for urgent or prompt attention, so on this data the safety margin
+> was free.
+>
+> I would not claim the policy fixes the classifier. Two of those nine were
+> confident misreads — called wound at over 99% — where no probability rule can
+> fire, and they get "within a few days" when an ulcer warrants 24 hours. That
+> needs a better model, not a better policy, and I state it as a limitation.
+
+**"Where did the 20% escalation threshold come from?"**
+
+> My judgement, from the cost asymmetry, and I say so rather than implying it
+> was learned. A false referral costs an appointment; a missed ulcer can cost a
+> limb. I set it low deliberately, because the models are confidently
+> calibrated — mean confidence around 0.98 — so probability that large on a
+> non-top class is rare and worth acting on, which the 2.1% firing rate bears
+> out. Tuning it properly would need a threshold sweep on the validation split.
+> I did not tune it against test, because that is the split every other result
+> in the study depends on having been read exactly once.
+
 **"Your healthy nail images come from montage sheets. Isn't that a problem?"**
 
 > I handled it explicitly. Tiling those sheets yields 18,096 images but they
@@ -679,7 +815,7 @@ result?"**
 
 ---
 
-## 8. Scope and boundary conditions
+## 9. Scope and boundary conditions
 
 Every study has a boundary, and stating it precisely is a mark of a controlled
 one. Each item below is a condition of the design that was identified during
@@ -697,7 +833,7 @@ tiles upscaled to 224×224; onychomycosis images are downscaled from several
 hundred pixels. Randomised blur augmentation was added to prevent sharpness
 acting as a class cue.
 
-**Class is partly confounded with source.** Addressed by the three tests in §4,
+**Class is partly confounded with source.** Addressed by the three tests in §5,
 but the design limitation remains and should be stated.
 
 **The nail images are largely fingernails.** Onychomycosis in the agricultural
@@ -726,7 +862,7 @@ everything on validation. A threshold chosen this way carries no guarantee on
 unseen data, and in fact ResNet50's test accuracy at full coverage (0.9896) came
 in just under the 0.99 it was selected to achieve.
 
-**Model capacity and artefact absorption move together.** §4.3 shows ResNet50
+**Model capacity and artefact absorption move together.** §5.3 shows ResNet50
 recovering three times as much class information from a 20px border as
 MobileNetV2. Choosing the larger model for accuracy also buys more sensitivity
 to whatever is incidental in the data — relevant to any future work scaling up
@@ -734,7 +870,7 @@ the backbone.
 
 ---
 
-## 9. Methodological decisions worth defending
+## 10. Methodological decisions worth defending
 
 | Decision | Reason |
 |---|---|
@@ -752,7 +888,7 @@ the backbone.
 
 ---
 
-## 10. Superseded results (do not report with the current test set)
+## 11. Superseded results (do not report with the current test set)
 
 From the earlier class-only split. Retained because the ResNet50 training
 figures indicate what to expect, and the MobileNetV2 comparison shows the split
@@ -771,7 +907,7 @@ fix cost almost nothing.
 was made before the current split was trained, and it **held**: 0.9849 against
 0.9548, three missed ulcers against nine (§2). The comparison is therefore not
 "ResNet50 is 0.6 points more accurate" but "ResNet50 misses substantially fewer
-ulcers, at ten times the size", with §2 and §4.1 adding that on the
+ulcers, at ten times the size", with §2 and §5.1 adding that on the
 confound-free comparison the two architectures perform equivalently.
 
 Note also that the ulcer recall gap *narrowed* between the splits — 0.9397 →
@@ -786,27 +922,31 @@ nail case at all.
 
 ---
 
-## 11. Remaining work
+## 12. Remaining work
 
 Done: ResNet50 is trained on the current split (5.4, WBS 5.6); `evaluate.py`,
 `calibrate.py` and `ablate_border.py` have all been run with both models; and
 the paired significance testing is complete, overall and within every class
 and source. Every figure above comes from one consistent result set.
 
-1. **External validation** — 20–50 photographs taken independently, scored
+1. **A threshold sweep on validation.** The escalation thresholds (§4) were set
+   by judgement and have now been measured on test, which means they must not
+   be re-tuned against it. A sweep on the validation split would establish
+   whether 20% is the right operating point or merely a defensible one.
+2. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. The highest-value addition remaining, and
-   the only evidence that would settle which model to recommend (§6); check
+   the only evidence that would settle which model to recommend (§7); check
    whether ethics approval is required first.
-2. **Optional, if GPU time allows: a second seed for each architecture.** Would
-   bound the seed-to-seed variance noted in §8. Not required by the proposal.
-3. **Optional: more ulcer test images.** The one trend in the study (p = 0.07)
+3. **Optional, if GPU time allows: a second seed for each architecture.** Would
+   bound the seed-to-seed variance noted in §9. Not required by the proposal.
+4. **Optional: more ulcer test images.** The one trend in the study (p = 0.07)
    sits on 199 ulcers. More would settle it either way, and settling it is the
    single most useful additional measurement available. Not required by the
    proposal.
 
 ---
 
-## 12. Reproducibility notes
+## 13. Reproducibility notes
 
 Failure modes that cost real time and are worth a paragraph in the methodology
 or reflection, because each produced a *silent* wrong result rather than an
