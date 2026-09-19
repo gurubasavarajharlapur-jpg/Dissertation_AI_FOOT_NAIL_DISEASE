@@ -22,9 +22,10 @@ decision. Written to be quoted from directly when drafting the dissertation.
   confident 3% of cases and refer them, and be correct on **99.6%** of the rest
   (§3).
 - **A safety-first referral policy, measured rather than asserted** (§4):
-  escalation fires on 2.1% of cases [1.4–3.0%] and restores the correct urgency
-  band to **7 of the 9 ulcers the classifier misreads**, while referring
-  **0 of 556 healthy** and **0 of 117 fungal** cases for urgent or prompt care.
+  escalation restores the correct urgency band to **7 of the 9 ulcers the
+  classifier misreads** — none of which would reach it otherwise — while
+  referring **0 of 556 healthy** and **0 of 117 fungal** cases for urgent or
+  prompt care. The result holds at every escalation threshold tried.
 - A **working prototype** with screening and batch-evaluation tabs, Grad-CAM
   explanation and clinical guidance text (Phase 6).
 
@@ -523,14 +524,65 @@ grounds validation could not measure.
 are identical on validation (576/576 serious referred, 3/685 benign), so there
 is nothing to gain.
 
+### Re-audited at the adopted 0.10 threshold
+
+Moving the threshold from 0.20 to 0.10 was expected to reach more of the
+misclassified ulcers, because that is what validation showed. **On test it
+reached exactly the same number**, and this is the more interesting result:
+
+| Measure (test, 1,248 images) | at 0.20 | at 0.10 |
+|---|---|---|
+| Escalation fired | 26 — 2.1% | 32 — 2.6% |
+| Misclassified ulcers referred | 9 of 9 | 9 of 9 |
+| **Misclassified ulcers reaching urgent** | **7 of 9** | **7 of 9** |
+| Healthy referred | 0 of 556 | 0 of 556 |
+| Nail fungal referred | 0 of 117 | 0 of 117 |
+| True wounds raised to urgent | 14 of 376 — 3.7% | 27 of 376 — 7.2% |
+| Sensitivity / specificity | 574/575, 673/673 | 574/575, 673/673 |
+
+The benefit validation predicted did not appear, and the cost did: wound cases
+raised to urgent nearly doubled while the ulcer outcome did not move at all.
+
+**Why.** No misclassified test ulcer had P(ulcer) between 0.10 and 0.20, so
+lowering the threshold across that band changed nothing. The two ulcers still
+at *prompt* were called Foot Wound at 99.3% and 99.9% confidence, putting
+P(ulcer) below roughly 0.007 and 0.001 — no threshold worth setting reaches
+them. On validation three misreads did fall in that band; on test none did.
+With 11 misclassified ulcers in validation and 9 in test, neither split can
+resolve a difference of this size, and the disagreement between them is
+sampling noise rather than a contradiction.
+
+**The threshold is kept at 0.10.** Reverting because test did not replicate the
+gain would be tuning on test, which is exactly the thing this project has
+avoided throughout — the rule was fixed in advance as "tune on validation", and
+honouring it when the answer is inconvenient is what makes it a rule. The cost
+of being wrong here is bounded and benign: the additional cases are **true
+wounds**, who need care regardless and are told to seek it within 24 hours
+rather than a few days. The number that would represent real cost — well people
+sent for urgent care — did not move at all, and stayed at zero for both healthy
+and fungal cases.
+
+### The conclusion the two audits support together
+
+Running the audit at both thresholds gives a cleaner result than either alone:
+
+> Without escalation, none of the nine misclassified ulcers reaches the urgent
+> band — all map to *prompt* through the wound class. With escalation, seven do,
+> at **any** threshold between roughly 0.01 and 0.20. Whether escalation exists
+> is worth seven ulcers; where the threshold sits inside that range is worth
+> none.
+
+That is the claim to make. It is more robust than a figure tied to one
+threshold, it does not depend on the validation/test disagreement resolving
+either way, and it puts the emphasis where the evidence actually is — on the
+policy rather than on its tuning.
+
 ### Limitations of this measurement
 
-- **The measured test-set figures above were produced at the old 0.20
-  threshold**, before the validation sweep moved it to 0.10. They are therefore
-  a *lower bound* on what the shipped policy does: at 0.10 escalation fires
-  more often and reaches more misreads. Re-run `src/audit_triage.py` and
-  replace them before submission, and until then label every triage figure in
-  this section with the threshold that produced it.
+- **The headline test figures are identical at both thresholds tried.** 7 of 9
+  misclassified ulcers reach urgent at 0.20 and at 0.10; only the number of
+  true wounds raised to urgent changes (14 vs 27). Label triage figures with
+  the threshold that produced them anyway, since the wound figure does differ.
 - **Zero false referrals is a test-set result, not a guarantee.** The upper
   confidence bound is 0.7% for healthy cases, so up to about four in every 556
   is consistent with this evidence.
@@ -867,16 +919,35 @@ result?"**
 > fire, and they get "within a few days" when an ulcer warrants 24 hours. That
 > needs a better model, not a better policy, and I state it as a limitation.
 
-**"Where did the 20% escalation threshold come from?"**
+**"Where did the escalation threshold come from?"**
 
-> My judgement, from the cost asymmetry, and I say so rather than implying it
-> was learned. A false referral costs an appointment; a missed ulcer can cost a
-> limb. I set it low deliberately, because the models are confidently
-> calibrated — mean confidence around 0.98 — so probability that large on a
-> non-top class is rare and worth acting on, which the 2.1% firing rate bears
-> out. Tuning it properly would need a threshold sweep on the validation split.
-> I did not tune it against test, because that is the split every other result
-> in the study depends on having been read exactly once.
+> It started as my judgement from the cost asymmetry, and I then swept it on
+> the validation split. The sweep found my original 0.20 too conservative — it
+> escalated 3 of 11 misclassified validation ulcers where 0.10 escalated 6 at
+> no measured cost — so I moved it to 0.10. I did not take the value the
+> selection rule actually returned, 0.02, and I report that openly: the rule's
+> cost budget never bound, so it had collapsed into maximising benefit with
+> nothing pushing back, and 2% of the mass in a four-class softmax is close to
+> the noise floor. I did not tune against test at any point.
+
+**"Did lowering the threshold actually help?"**
+
+> On test, no — and I report that rather than only the validation result. Seven
+> of the nine misclassified ulcers reach the urgent band at both 0.20 and 0.10;
+> what changed is that true wounds raised to urgent went from 14 to 27. No test
+> misread happened to fall in the band I lowered through, whereas three
+> validation misreads did. With 9 and 11 misclassified ulcers respectively,
+> neither split can resolve a difference that small.
+>
+> I kept 0.10 anyway, because reverting on test evidence would be tuning on
+> test, and the rule was fixed in advance. The cost of being wrong is bounded:
+> the extra escalations are true wounds, who need care regardless and are simply
+> told to seek it sooner. Referral of well people stayed at zero throughout.
+>
+> Running it at both thresholds gave me a better claim than either alone.
+> Without escalation none of those nine ulcers reaches urgent; with it, seven
+> do, at any threshold between about 0.01 and 0.20. Whether escalation exists
+> is worth seven ulcers — where exactly the threshold sits is worth none.
 
 **"Your healthy nail images come from montage sheets. Isn't that a problem?"**
 
@@ -1011,22 +1082,19 @@ nail case at all.
 ## 12. Remaining work
 
 Done: ResNet50 is trained on the current split (5.4, WBS 5.6); `evaluate.py`,
-`calibrate.py` and `ablate_border.py` have all been run with both models; and
-the paired significance testing is complete, overall and within every class
-and source. Every figure above comes from one consistent result set.
+`calibrate.py` and `ablate_border.py` have all been run with both models; the
+paired significance testing is complete, overall and within every class and
+source; and the triage thresholds have been swept on validation and the policy
+audited on test at both the old and the adopted threshold. Every figure above
+comes from one consistent result set.
 
-1. **Re-run `src/audit_triage.py` at the new 0.10 threshold.** The urgent
-   threshold moved from 0.20 to 0.10 after the validation sweep (§4), so the
-   test-set triage figures in that section predate the change and understate
-   what the shipped policy does. Seconds on CPU, no retraining, no re-run of
-   inference — but it must be done before the numbers are quoted.
-2. **External validation** — 20–50 photographs taken independently, scored
+1. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. The highest-value addition remaining, and
    the only evidence that would settle which model to recommend (§7); check
    whether ethics approval is required first.
-3. **Optional, if GPU time allows: a second seed for each architecture.** Would
+2. **Optional, if GPU time allows: a second seed for each architecture.** Would
    bound the seed-to-seed variance noted in §9. Not required by the proposal.
-4. **Optional: more ulcer test images.** The one trend in the study (p = 0.07)
+3. **Optional: more ulcer test images.** The one trend in the study (p = 0.07)
    sits on 199 ulcers. More would settle it either way, and settling it is the
    single most useful additional measurement available. Not required by the
    proposal.
