@@ -439,12 +439,67 @@ That is a safety mechanism that measurably improves the handling of the
 clinically critical class at no measured cost — a stronger and more specific
 claim than "the prototype gives clinical guidance".
 
+### Tuning the thresholds on validation
+
+The escalation thresholds were set by judgement, so `src/sweep_thresholds.py`
+tunes them against the **validation** split — never test, which by this point
+has been read and cannot be tuned against without spending it. It evaluates
+candidates by calling the real `triage.assess` with the value injected, so what
+is tuned is what ships.
+
+Validation: 1,261 images, 200 ulcers of which 11 are misclassified, 685 benign.
+
+**`TRIAGE_URGENT_PROB` — P(ulcer) forcing the urgent band:**
+
+| Threshold | Misclassified ulcers reaching urgent | Benign sent urgently |
+|---|---|---|
+| **0.02** | **10 of 11 — 90.9%** | 2 of 685 — 0.3% |
+| 0.04 | 8 of 11 — 72.7% | 1 of 685 — 0.1% |
+| 0.08 | 6 of 11 — 54.5% | 1 of 685 — 0.1% |
+| 0.10 | 6 of 11 — 54.5% | **0 of 685 — 0.0%** |
+| **0.20 (configured)** | **3 of 11 — 27.3%** | 0 of 685 — 0.0% |
+| 0.38+ | 0 of 11 — 0.0% | 0 of 685 — 0.0% |
+
+**The configured 0.20 is too conservative, and this is the sweep's clear
+finding.** It escalates 3 of the 11 misclassified ulcers where 0.02 escalates
+10, and the extra cost of getting there is two benign people receiving an
+urgent referral they did not need — about **3.5 ulcers correctly escalated per
+unnecessary appointment.** Clinically that trade is not close.
+
+**`TRIAGE_REVIEW_PROB` — P(ulcer) + P(wound) forcing prompt:** referral of
+serious cases holds at 100% from 0.02 all the way to 0.30, and the configured
+0.20 and the selected 0.30 are **identical on validation** — both refer 576/576
+serious and 3/685 benign. There is no measurable reason to change it.
+
+### Two things the sweep could not settle
+
+**The cost budget never binds.** At 2% of benign cases the budget allows 13.7
+urgent referrals; the most aggressive threshold on the grid spends 2. The
+constraint is inactive across the entire range, which means the selection rule
+degenerated to "maximise benefit" and **validation never exercised the
+cost side of the trade-off at all.** Report that honestly: the sweep bounded
+the benefit, it did not price the cost, because on in-distribution data this
+model puts almost no probability mass on ulcer for a benign foot.
+
+That is also the reason not to read 0.02 as simply optimal. The cost of a low
+threshold is paid under *distribution shift* — on a phone photograph in poor
+light, where the probability vector is flatter and 2% ulcer mass may mean
+nothing — and validation, drawn from the same clinical sources as training,
+cannot measure that. The external validation photographs (§12) are the evidence
+that would settle it.
+
+**One ulcer is unreachable.** Even at 0.02 the figure is 10 of 11: one
+misclassified ulcer carries less than 2% ulcer probability, a confident error
+no probability-based rule can catch at any threshold. It is the same limitation
+the test-set audit found in its two confident misreads, and it needs a better
+classifier rather than a better policy.
+
 ### Limitations of this measurement
 
-- **Thresholds were set by judgement, not tuned.** 20% follows from the cost
-  asymmetry, not from a sweep. Tuning them is legitimate, but must be done on
-  validation: the test split has now been read, and re-tuning against it would
-  spend the one split this project has protected throughout.
+- **The measured test-set figures above use the configured 0.20 threshold**,
+  which the validation sweep then found too conservative. Whichever value is
+  finally adopted, state which one produced each reported figure — the audit
+  and the sweep are not interchangeable.
 - **Zero false referrals is a test-set result, not a guarantee.** The upper
   confidence bound is 0.7% for healthy cases, so up to about four in every 556
   is consistent with this evidence.
@@ -929,10 +984,11 @@ Done: ResNet50 is trained on the current split (5.4, WBS 5.6); `evaluate.py`,
 the paired significance testing is complete, overall and within every class
 and source. Every figure above comes from one consistent result set.
 
-1. **A threshold sweep on validation.** The escalation thresholds (§4) were set
-   by judgement and have now been measured on test, which means they must not
-   be re-tuned against it. A sweep on the validation split would establish
-   whether 20% is the right operating point or merely a defensible one.
+1. **Decide the urgent threshold and re-run the test audit.** The validation
+   sweep (§4) found 0.20 too conservative — it escalates 3 of 11 misclassified
+   ulcers where 0.02 escalates 10, at a cost of two unnecessary urgent
+   referrals. Adopting a lower value means re-running `src/audit_triage.py` so
+   the reported test figures match the shipped threshold.
 2. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. The highest-value addition remaining, and
    the only evidence that would settle which model to recommend (§7); check
