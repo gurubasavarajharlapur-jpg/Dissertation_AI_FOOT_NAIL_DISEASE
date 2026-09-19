@@ -45,6 +45,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src import config  # noqa: E402
+from src.stats import apply_temperature, probs_to_logits  # noqa: E402
 from src.evaluate import assert_model_matches_split  # noqa: E402
 
 import tensorflow as tf  # noqa: E402
@@ -58,23 +59,6 @@ EPS = 1e-12
 # ---------------------------------------------------------------------------
 # Probabilities and temperature
 # ---------------------------------------------------------------------------
-def probs_to_logits(probs: np.ndarray) -> np.ndarray:
-    """Recover logits from softmax outputs.
-
-    Softmax is invariant to an additive constant, so log(p) is a valid set of
-    logits: softmax(log(p)) == p exactly. That is all temperature scaling needs,
-    and it avoids rebuilding the models without their softmax layer.
-    """
-    return np.log(np.clip(probs, EPS, 1.0))
-
-
-def apply_temperature(logits: np.ndarray, temperature: float) -> np.ndarray:
-    scaled = logits / temperature
-    scaled -= scaled.max(axis=1, keepdims=True)  # stabilise before exponentiating
-    exponentiated = np.exp(scaled)
-    return exponentiated / exponentiated.sum(axis=1, keepdims=True)
-
-
 def fit_temperature(logits: np.ndarray, y_true: np.ndarray) -> tuple[float, bool]:
     """Temperature minimising validation NLL.
 

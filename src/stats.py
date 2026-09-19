@@ -1,8 +1,9 @@
-"""Paired statistics for comparing two models on the same test set.
+"""Numpy-only statistics shared across the analysis scripts.
 
-Kept separate from evaluate.py so the comparison can be recomputed from saved
-predictions in seconds, on a CPU, without importing TensorFlow or re-running
-inference.
+Nothing here imports TensorFlow, which is the point: every result computed from
+saved predictions — paired tests, confidence intervals, temperature scaling —
+can then be recomputed in seconds on a CPU without loading a model or
+re-running inference.
 
 Both tests here are *paired*. Two models scored on the same images do not
 produce independent results — an image that is hard for one is usually hard
@@ -86,3 +87,27 @@ def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, flo
     centre = (p + z ** 2 / (2 * n)) / denominator
     spread = z * ((p * (1 - p) / n + z ** 2 / (4 * n ** 2)) ** 0.5) / denominator
     return (max(0.0, centre - spread), min(1.0, centre + spread))
+
+
+# ---------------------------------------------------------------------------
+# Temperature scaling
+# ---------------------------------------------------------------------------
+EPS = 1e-12
+
+
+def probs_to_logits(probs: np.ndarray) -> np.ndarray:
+    """Recover logits from softmax outputs.
+
+    Softmax is invariant to an additive constant, so log(p) is a valid set of
+    logits: softmax(log(p)) == p exactly. That is all temperature scaling needs,
+    and it avoids rebuilding the models without their softmax layer.
+    """
+    return np.log(np.clip(probs, EPS, 1.0))
+
+
+def apply_temperature(logits: np.ndarray, temperature: float) -> np.ndarray:
+    """Softmax at the given temperature. T > 1 softens, T < 1 sharpens."""
+    scaled = logits / temperature
+    scaled -= scaled.max(axis=1, keepdims=True)  # stabilise before exponentiating
+    exponentiated = np.exp(scaled)
+    return exponentiated / exponentiated.sum(axis=1, keepdims=True)

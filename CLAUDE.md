@@ -33,15 +33,17 @@ python src/evaluate.py                 # test metrics, Grad-CAM, comparison
 python src/calibrate.py                # temperature scaling + referral threshold
 python src/ablate_border.py --model mobilenetv2   # occlusion confound test
 python src/compare_models.py           # paired significance, from saved CSVs
+python src/audit_triage.py             # what the triage policy does to the test set
 streamlit run src/prototype/app.py     # two-tab screening prototype
 
 python src/colab_sync.py status        # Colab: what is saved to Drive
 python src/colab_sync.py save --what models results
 ```
 
-`compare_models.py` is the only one that needs neither GPU nor TensorFlow — it
-reads `results/metrics/<model>_predictions.csv`, so the statistics can be redone
-in seconds without re-running inference.
+`compare_models.py` and `audit_triage.py` need neither GPU nor TensorFlow — both
+read `results/metrics/<model>_predictions.csv`, which carries the full
+probability vector per image, so any policy layered on the classifier can be
+audited and re-tuned in seconds without re-running inference.
 
 There is no test suite or linter configured yet.
 

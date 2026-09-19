@@ -541,6 +541,14 @@ def save_predictions(model_name: str, frame: pd.DataFrame, y_true: np.ndarray,
         "correct": (y_true == y_pred).astype(int),
         "confidence": y_prob.max(axis=1).round(6),
     })
+    # The full probability vector, not just the winning one. Any policy layered
+    # on top of the classifier — the referral threshold, the triage escalation
+    # rules — is a function of the whole vector, so saving all of it means those
+    # policies can be audited and re-tuned from the CSV without a GPU or a
+    # re-run. These are the model's raw outputs; temperature scaling is applied
+    # by whatever reads them, using the fitted value from the calibration file.
+    for index, name in enumerate(config.CLASS_NAMES):
+        out[f"p_{name}"] = y_prob[:, index].round(6)
     path = config.METRICS_DIR / f"{model_name}_predictions.csv"
     out.to_csv(path, index=False)
     return path
