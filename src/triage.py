@@ -36,16 +36,25 @@ def _raise_band(current: str, candidate: str) -> str:
     return _SEVERITY[min(_SEVERITY.index(current), _SEVERITY.index(candidate))]
 
 
-def assess(probs: np.ndarray, abstained: bool = False) -> dict:
+def assess(probs: np.ndarray, abstained: bool = False,
+           urgent_prob: float | None = None,
+           review_prob: float | None = None) -> dict:
     """Triage one prediction.
 
     `probs` is the calibrated probability vector in config.CLASS_NAMES order.
     `abstained` is True when confidence fell below the referral threshold.
 
+    `urgent_prob` and `review_prob` override the configured escalation
+    thresholds. They exist so a threshold sweep can evaluate the *real* policy
+    at candidate values rather than a reimplementation of it that could drift
+    from what ships. Deployment passes neither and gets the config values.
+
     Returns the band, the action text, and — importantly for a report someone
     has to trust — the reason the band was chosen, including whether it was
     escalated above what the top class alone would have given.
     """
+    urgent_prob = config.TRIAGE_URGENT_PROB if urgent_prob is None else urgent_prob
+    review_prob = config.TRIAGE_REVIEW_PROB if review_prob is None else review_prob
     probs = np.asarray(probs, dtype=float)
     if probs.shape != (config.NUM_CLASSES,):
         raise ValueError(f"expected {config.NUM_CLASSES} probabilities, got {probs.shape}")
@@ -80,7 +89,7 @@ def assess(probs: np.ndarray, abstained: bool = False) -> dict:
 
     # 2. A serious condition holding real probability escalates even when it is
     #    not the top class — the case this whole module exists for.
-    if ulcer >= config.TRIAGE_URGENT_PROB:
+    if ulcer >= urgent_prob:
         band = _raise_band(band, "urgent")
         if top_class != "foot_ulcer":
             escalation_class = "foot_ulcer"
@@ -89,7 +98,7 @@ def assess(probs: np.ndarray, abstained: bool = False) -> dict:
                 f"probability. That is below the top class but high enough to "
                 f"act on, because a missed ulcer is the costly error."
             )
-    elif ulcer + wound >= config.TRIAGE_REVIEW_PROB:
+    elif ulcer + wound >= review_prob:
         band = _raise_band(band, "prompt")
         if top_class not in ("foot_ulcer", "foot_wound"):
             escalation_class = "foot_wound"

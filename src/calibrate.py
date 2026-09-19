@@ -173,7 +173,7 @@ def _decode(path: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
     return image, label
 
 
-def predict_split(model: keras.Model, split: str) -> tuple[np.ndarray, np.ndarray]:
+def predict_split(model: keras.Model, split: str) -> tuple[np.ndarray, np.ndarray, pd.DataFrame]:
     path = config.PROCESSED_DIR / f"{split}.csv"
     if not path.exists():
         raise SystemExit(f"'{path}' not found. Run `python src/preprocessing.py` first.")
@@ -187,7 +187,7 @@ def predict_split(model: keras.Model, split: str) -> tuple[np.ndarray, np.ndarra
         .batch(config.BATCH_SIZE)
         .prefetch(AUTOTUNE)
     )
-    return model.predict(dataset, verbose=0), labels
+    return model.predict(dataset, verbose=0), labels, frame
 
 
 # ---------------------------------------------------------------------------
@@ -244,8 +244,8 @@ def calibrate_one(model_name: str) -> dict:
 
     assert_model_matches_split(model_name)
     model = keras.models.load_model(config.model_path(model_name))
-    val_probs, val_true = predict_split(model, "val")
-    test_probs, test_true = predict_split(model, "test")
+    val_probs, val_true, val_frame = predict_split(model, "val")
+    test_probs, test_true, _ = predict_split(model, "test")
 
     logits = probs_to_logits(val_probs)
     ece_before, detail_before = expected_calibration_error(
@@ -350,6 +350,26 @@ def calibrate_one(model_name: str) -> dict:
         "reliability_after": detail_after,
         "risk_coverage_curve": curve,
     }
+    # Validation predictions, in the same shape evaluate.py writes for test.
+    # Any policy threshold layered on the classifier has to be tuned on
+    # validation — tuning on test would spend the split every other result in
+    # this project depends on having been read exactly once — and tuning needs
+    # the full probability vector, not just the winning one. Saving it here
+    # means the sweep runs on a CPU in seconds instead of re-running inference.
+    val_out = pd.DataFrame({
+        "path": val_frame["path"].to_numpy(),
+        "source": val_frame["source"].to_numpy(),
+        "true": [config.CLASS_NAMES[i] for i in val_true],
+        "predicted": [config.CLASS_NAMES[i] for i in val_probs.argmax(axis=1)],
+        "correct": (val_probs.argmax(axis=1) == val_true).astype(int),
+        "confidence": val_probs.max(axis=1).round(6),
+    })
+    for index, name in enumerate(config.CLASS_NAMES):
+        val_out[f"p_{name}"] = val_probs[:, index].round(6)
+    val_path = config.METRICS_DIR / f"{model_name}_val_predictions.csv"
+    val_out.to_csv(val_path, index=False)
+    print(f"  validation preds -> {val_path.relative_to(config.PROJECT_ROOT)}")
+
     config.calibration_path(model_name).write_text(json.dumps(summary, indent=2))
     keras.backend.clear_session()
     return summary

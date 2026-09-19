@@ -377,6 +377,21 @@ CLASS_TRIAGE: dict[str, str] = {
 TRIAGE_URGENT_PROB = 0.20      # P(foot_ulcer) at or above this -> urgent, always
 TRIAGE_REVIEW_PROB = 0.20      # P(ulcer) + P(wound) at or above this -> prompt
 
+# Budgets for the threshold sweep (src/sweep_thresholds.py), which tunes the two
+# values above on the VALIDATION split.
+#
+# The sweep mirrors how the abstention threshold is chosen: optimise the safety
+# metric subject to a cost the service can absorb. Lowering a threshold raises
+# both the fraction of ulcers reaching the right urgency band and the number of
+# well people sent for care, so the budget is what stops "escalate everything"
+# from winning — a tool that refers all comers is safe and useless.
+#
+# The numbers are a judgement about clinic capacity, not a measurement. Urgent
+# is the tighter budget because a 24-hour appointment is the scarcer resource in
+# the rural setting this targets.
+TRIAGE_MAX_FALSE_URGENT = 0.02   # of people needing no care, at most this share sent urgently
+TRIAGE_MAX_FALSE_REFERRAL = 0.05  # ... and at most this share referred at all
+
 # Never-reassure rule. Shown with EVERY result including "healthy", because the
 # failure mode that matters is someone with a real ulcer reading "no concerning
 # features" and staying home.
@@ -446,9 +461,14 @@ def validate() -> None:
     if CLASS_TRIAGE.get("foot_ulcer") != "urgent":
         raise ValueError("foot_ulcer must map to the 'urgent' triage band")
     for name, value in (("TRIAGE_URGENT_PROB", TRIAGE_URGENT_PROB),
-                        ("TRIAGE_REVIEW_PROB", TRIAGE_REVIEW_PROB)):
+                        ("TRIAGE_REVIEW_PROB", TRIAGE_REVIEW_PROB),
+                        ("TRIAGE_MAX_FALSE_URGENT", TRIAGE_MAX_FALSE_URGENT),
+                        ("TRIAGE_MAX_FALSE_REFERRAL", TRIAGE_MAX_FALSE_REFERRAL)):
         if not 0 < value <= 1:
             raise ValueError(f"{name} must be in (0, 1]")
+    if TRIAGE_MAX_FALSE_URGENT > TRIAGE_MAX_FALSE_REFERRAL:
+        raise ValueError("TRIAGE_MAX_FALSE_URGENT cannot exceed TRIAGE_MAX_FALSE_REFERRAL: "
+                         "every urgent referral is also a referral")
 
     for name, mapping in (("FOLDER_TO_CLASS", FOLDER_TO_CLASS),
                           ("LEAF_FOLDER_TO_CLASS", LEAF_FOLDER_TO_CLASS)):
