@@ -319,6 +319,75 @@ UNCERTAIN_GUIDANCE = (
     "This does not mean nothing is wrong. Consult a healthcare professional."
 )
 
+# ---------------------------------------------------------------------------
+# Safety-first triage
+# ---------------------------------------------------------------------------
+# The classifier reports appearance. Triage turns that into an action, and the
+# two are not symmetric: a false referral costs someone a clinic visit, a missed
+# ulcer can cost a limb or a life. Diabetic foot ulceration precedes ~80% of
+# non-traumatic lower-limb amputations, and five-year mortality after a first
+# diabetic foot ulcer is comparable to several common cancers (Armstrong et al.,
+# NEJM 2017). So every rule below is deliberately biased toward referral.
+#
+# These bands are a DESIGN DECISION, not a model output. The network never saw
+# severity, infection, depth, perfusion or patient history, so it cannot judge
+# urgency — the band is attached to the predicted class, exactly as
+# CLINICAL_GUIDANCE is. Review against IWGDF guidance and NICE NG19 before
+# showing this to any clinician.
+TRIAGE_BANDS: dict[str, dict[str, str]] = {
+    "urgent": {
+        "label": "Urgent",
+        "timeframe": "Seek care within 24 hours",
+        "colour": "red",
+    },
+    "prompt": {
+        "label": "Prompt",
+        "timeframe": "Seek care within a few days",
+        "colour": "orange",
+    },
+    "routine": {
+        "label": "Routine",
+        "timeframe": "Arrange a routine appointment",
+        "colour": "blue",
+    },
+    "self_care": {
+        "label": "Self-care",
+        "timeframe": "No appointment needed on this result alone",
+        "colour": "green",
+    },
+}
+
+# The band each class maps to when the model is confident.
+CLASS_TRIAGE: dict[str, str] = {
+    "healthy": "self_care",
+    "nail_fungal": "routine",
+    "foot_wound": "prompt",
+    "foot_ulcer": "urgent",
+}
+
+# Escalation thresholds — the safety net, and the reason this is not just
+# argmax with a label on it.
+#
+# A prediction of "healthy 0.55, foot_ulcer 0.40" has healthy as the top class,
+# and reporting it as healthy would be the single most dangerous thing this
+# tool could do. So a serious condition holding meaningful probability escalates
+# the band even when it is not the top class. The thresholds are low on purpose:
+# the models are confidently calibrated (mean confidence ~0.98), so probability
+# this large on a non-top class is rare and genuinely worth acting on.
+TRIAGE_URGENT_PROB = 0.20      # P(foot_ulcer) at or above this -> urgent, always
+TRIAGE_REVIEW_PROB = 0.20      # P(ulcer) + P(wound) at or above this -> prompt
+
+# Never-reassure rule. Shown with EVERY result including "healthy", because the
+# failure mode that matters is someone with a real ulcer reading "no concerning
+# features" and staying home.
+SAFETY_NET = (
+    "This screening looks at one photograph and cannot rule anything out. "
+    "Seek medical attention regardless of this result if you have diabetes, "
+    "reduced sensation or poor circulation in the feet, or if you notice "
+    "spreading redness, swelling, warmth, discharge, an unpleasant smell, "
+    "fever, or an area that is not healing."
+)
+
 DISCLAIMER = (
     "Research prototype built for an MSc dissertation. This is NOT a medical "
     "device and must not be used for diagnosis or to decide treatment. Always "
@@ -364,6 +433,22 @@ def validate() -> None:
         raise ValueError(f"CLINICAL_GUIDANCE has no entry for: {sorted(missing_guidance)}")
     if not 0 < SELECTIVE_MIN_COVERAGE <= 1:
         raise ValueError("SELECTIVE_MIN_COVERAGE must be in (0, 1]")
+
+    missing_triage = set(CLASS_NAMES) - set(CLASS_TRIAGE)
+    if missing_triage:
+        raise ValueError(f"CLASS_TRIAGE has no entry for: {sorted(missing_triage)}")
+    unknown_bands = set(CLASS_TRIAGE.values()) - set(TRIAGE_BANDS)
+    if unknown_bands:
+        raise ValueError(f"CLASS_TRIAGE names bands that do not exist: {sorted(unknown_bands)}")
+    # An ulcer must never map to anything but the most urgent band. This is the
+    # one clinical invariant in the file, so it fails at import rather than
+    # being noticed in a demo.
+    if CLASS_TRIAGE.get("foot_ulcer") != "urgent":
+        raise ValueError("foot_ulcer must map to the 'urgent' triage band")
+    for name, value in (("TRIAGE_URGENT_PROB", TRIAGE_URGENT_PROB),
+                        ("TRIAGE_REVIEW_PROB", TRIAGE_REVIEW_PROB)):
+        if not 0 < value <= 1:
+            raise ValueError(f"{name} must be in (0, 1]")
 
     for name, mapping in (("FOLDER_TO_CLASS", FOLDER_TO_CLASS),
                           ("LEAF_FOLDER_TO_CLASS", LEAF_FOLDER_TO_CLASS)):

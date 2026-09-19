@@ -38,7 +38,9 @@ import io
 import json
 import sys
 import re
+import uuid
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +50,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from src import config  # noqa: E402
+from src import config, triage  # noqa: E402
 from src.stats import wilson_interval  # noqa: E402
 
 st.set_page_config(page_title="Foot & Nail Screening — MSc Prototype",
@@ -206,26 +208,8 @@ def screening_tab(model_name: str) -> None:
         st.image(image, caption=f"{image.width}×{image.height}", use_container_width=True)
 
     with right:
-        if abstain:
-            st.warning("### Uncertain — no condition reported")
-            st.write(config.UNCERTAIN_GUIDANCE)
-            st.caption(
-                f"Top candidate {config.CLASS_DISPLAY_NAMES[top_name]} at {confidence:.0%}, "
-                f"below the {threshold:.0%} threshold at which this model's predictions "
-                f"reach the required accuracy."
-            )
-        else:
-            st.success(f"### {config.CLASS_DISPLAY_NAMES[top_name]}")
-            # Never display 100%. A rounded 0.9997 shown as certainty overclaims,
-            # and sits badly beside a dissertation section establishing that this
-            # model's confidence needed correcting at all.
-            shown = ">99.9%" if confidence > 0.999 else f"{confidence:.1%}"
-            st.metric("Calibrated confidence", shown)
-            st.write(config.CLINICAL_GUIDANCE[top_name])
-            st.caption(
-                "Guidance is fixed clinical advice for this class, not a model "
-                "assessment of severity. The model classifies appearance only."
-            )
+        render_report(probs, abstain, confidence, top_name, threshold, model_name,
+                      calibration)
 
         if known_label is not None:
             if known_label == top_name and not abstain:
@@ -278,6 +262,95 @@ def screening_tab(model_name: str) -> None:
 # ---------------------------------------------------------------------------
 # Tab 2: batch evaluation
 # ---------------------------------------------------------------------------
+# Streamlit's four status colours happen to map onto the triage bands exactly,
+# so the banner needs no custom HTML and stays legible in light and dark themes.
+_BAND_WIDGET = {
+    "urgent": ("error", "URGENT"),
+    "prompt": ("warning", "PROMPT"),
+    "routine": ("info", "ROUTINE"),
+    "self_care": ("success", "SELF-CARE"),
+}
+
+
+def render_report(probs: np.ndarray, abstain: bool, confidence: float,
+                  top_name: str, threshold: float, model_name: str,
+                  calibration: dict) -> None:
+    """A structured screening report, headed by the recommended action.
+
+    Ordering is the whole point. A clinical report leads with what to DO, not
+    with what the classifier thinks: someone reading this on a phone in a rural
+    clinic may not read past the first line, so the first line has to be the
+    action. The class, the confidence and the probability table follow as
+    supporting detail.
+
+    It is deliberately NOT styled to look like a clinician's report. There is no
+    signature, no practitioner name and no letterhead, and the disclaimer sits
+    inside the report rather than beneath it — a document that could be mistaken
+    for a real medical record would be a worse outcome than an ugly one.
+    """
+    result = triage.assess(probs, abstained=abstain)
+    widget, band_word = _BAND_WIDGET[result["band"]]
+
+    st.markdown("#### Automated screening report")
+    reference = f"FN-{datetime.now():%Y%m%d}-{uuid.uuid4().hex[:4].upper()}"
+    st.caption(
+        f"Reference {reference}  ·  {datetime.now():%d %b %Y, %H:%M}  ·  "
+        f"model {model_name}"
+        + ("" if calibration.get("_missing")
+           else f", calibrated T={calibration['temperature']:.3f}")
+    )
+
+    # 1. The action, first and largest.
+    getattr(st, widget)(f"### {band_word} — {result['timeframe']}")
+    if result["escalated"]:
+        st.caption(
+            f"Escalated from *{config.TRIAGE_BANDS[result['base_band']]['label']}*: "
+            f"this result was raised because of what follows, not because it was "
+            f"the most likely class. The tool escalates when uncertain."
+        )
+
+    # 2. What was found.
+    st.markdown("**Screening finding**")
+    if result["top_class"] is None:
+        st.markdown("Inconclusive — no condition is being reported.")
+        st.caption(
+            f"Top candidate {config.CLASS_DISPLAY_NAMES[top_name]} at "
+            f"{confidence:.0%}, below the {threshold:.0%} threshold at which "
+            f"this model's predictions reach the required accuracy."
+        )
+    else:
+        # Never display 100%. A rounded 0.9997 shown as certainty overclaims,
+        # and sits badly beside a dissertation section establishing that this
+        # model's confidence needed correcting at all.
+        shown = ">99.9%" if confidence > 0.999 else f"{confidence:.1%}"
+        st.markdown(
+            f"{config.CLASS_DISPLAY_NAMES[result['top_class']]} "
+            f"— calibrated confidence {shown}"
+        )
+
+    # 3. Why this recommendation, so it can be challenged rather than obeyed.
+    st.markdown("**Basis for this recommendation**")
+    for reason in result["reasons"]:
+        st.markdown(f"- {reason}")
+
+    # 4. What to do.
+    st.markdown("**Recommended action**")
+    st.markdown(result["guidance"])
+
+    # 5. The never-reassure rule, on every result including a clean one.
+    st.markdown("**Seek care regardless of this result if**")
+    st.markdown(result["safety_net"])
+
+    st.caption(
+        "Triage bands and guidance are fixed clinical rules attached to the "
+        "predicted class and to the probability of a serious condition. They "
+        "are not a model judgement of severity: the model was trained on four "
+        "class labels and has never seen severity, infection, depth, "
+        "circulation or patient history."
+    )
+    st.error(f"**{config.DISCLAIMER}**")
+
+
 def _score(model, model_name: str, items: list[tuple[np.ndarray, int]],
            temperature: float, threshold: float) -> dict:
     from sklearn.metrics import (accuracy_score, confusion_matrix,
