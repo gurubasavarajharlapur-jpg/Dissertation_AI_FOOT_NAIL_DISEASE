@@ -94,8 +94,10 @@ makes the comparison a controlled experiment rather than two separate runs.
 | | MobileNetV2 | ResNet50 |
 |---|---|---|
 | Stage 1 best val loss | 0.1217 (epoch 14) | 0.0390 (epoch 14) |
-| Stage 2 best val loss | **0.0604** | **0.0272** (epoch 18 overall) |
+| Stage 2 best val loss | **0.0604** (epoch 34 overall) | **0.0272** (epoch 18 overall) |
 | Best val accuracy | 0.9802 | 0.9905 |
+| Total epochs run | 40 (15 + 25) | 26 (15 + 11) |
+| How stage 2 ended | epoch allowance exhausted | early stopping |
 | Backbone layers unfrozen | top 19 | top 21 of 30 |
 | Trainable params at stage 2 | — | 14,436,868 of 23,595,908 |
 | Training time (Tesla T4) | 84.8 min | 53.9 min |
@@ -103,9 +105,22 @@ makes the comparison a controlled experiment rather than two separate runs.
 Fine-tuning improved substantially on head training in both cases — the
 evidence that justifies the two-stage design rather than convention.
 
-ResNet50 trained *faster in wall-clock* despite being ten times larger, because
-it converged in 26 epochs (early stopping at stage-2 epoch 11, best at epoch 3)
-against MobileNetV2's full schedule. Worth a sentence: training cost and
+**The two models did not consume the epoch allowance the same way, and the
+difference is one-directional.** ResNet50 stopped after 11 fine-tuning epochs by
+early stopping: its best validation loss came at epoch 18 overall and training
+ended exactly 8 epochs later, which is the configured patience. Its result is
+fixed by convergence and would be identical under any allowance above 11.
+MobileNetV2 ran the full 25 fine-tuning epochs *without* early stopping — best
+at epoch 34, six epochs before the end, so plateauing but never meeting the
+convergence criterion.
+
+Stated plainly: ResNet50 trained to convergence, MobileNetV2 ran out of budget.
+Any residual effect runs **against MobileNetV2**, the model recommended in §7,
+so the comparison is conservative rather than flattering to its own conclusion.
+Verified from `results/metrics/<model>_history.json`.
+
+ResNet50 also trained *faster in wall-clock* despite being ten times larger,
+because it converged in 26 epochs against MobileNetV2's full 40. Worth a sentence: training cost and
 inference cost do not move together, and it is inference cost that matters for
 deployment.
 
@@ -1017,6 +1032,13 @@ setting. Phrase accordingly — "motivated by", not "demonstrated for".
 
 **OpenCV is listed in §5.5 but unused.** Pillow and NumPy cover the pipeline.
 Amend the resource list or note the substitution.
+
+**MobileNetV2 stopped on its epoch allowance, not on convergence.** It ran the
+full 25 fine-tuning epochs with its best six epochs before the end, two short of
+triggering early stopping, whereas ResNet50 stopped by the early stopping
+criterion. A longer allowance might have improved MobileNetV2 slightly. The bias
+runs against the recommended model, so the reported gap between the
+architectures is if anything an over-estimate.
 
 **One split, one seed, one run per architecture.** Every comparison here rests
 on a single train/val/test partition and a single training run of each model
