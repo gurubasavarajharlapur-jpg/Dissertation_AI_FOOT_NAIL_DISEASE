@@ -374,7 +374,31 @@ CLASS_TRIAGE: dict[str, str] = {
 # the band even when it is not the top class. The thresholds are low on purpose:
 # the models are confidently calibrated (mean confidence ~0.98), so probability
 # this large on a non-top class is rare and genuinely worth acting on.
-TRIAGE_URGENT_PROB = 0.20      # P(foot_ulcer) at or above this -> urgent, always
+# Set to 0.10 after the validation sweep (src/sweep_thresholds.py); was 0.20.
+#
+# At 0.20 escalation reached 3 of the 11 misclassified validation ulcers. At
+# 0.10 it reaches 6, and sends no benign case for urgent care at all — 0 of 685.
+# Doubling the benefit for no measured cost is not a close call.
+#
+# The sweep's own rule selected 0.02, which reached 10 of 11 for two unnecessary
+# urgent referrals, and 0.02 is NOT adopted. Two reasons, both worth stating
+# rather than hiding. The rule's cost budget never bound — it allows 13.7 such
+# referrals and the most aggressive threshold spent 2 — so the rule degenerated
+# to maximising benefit with no counter-pressure, and its answer is the end of
+# the grid rather than a real optimum. And 2% of the probability mass in a
+# four-class softmax is close to the noise floor: validation is drawn from the
+# same clinical sources as training, so it cannot show what a flatter, less
+# confident probability vector from a phone photograph would do at that
+# threshold. 0.10 keeps a five-fold margin for that.
+#
+# Revisit once external validation photographs exist: they are the only
+# evidence that can price a low threshold under distribution shift.
+TRIAGE_URGENT_PROB = 0.10      # P(foot_ulcer) at or above this -> urgent, always
+
+# Left at 0.20. The sweep preferred 0.30, but the two are identical on
+# validation — both refer 576/576 serious cases and 3/685 benign — so there is
+# nothing to gain, and an unnecessary change would invalidate the test-set
+# audit figures for no measured benefit.
 TRIAGE_REVIEW_PROB = 0.20      # P(ulcer) + P(wound) at or above this -> prompt
 
 # Budgets for the threshold sweep (src/sweep_thresholds.py), which tunes the two

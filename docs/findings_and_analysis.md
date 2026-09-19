@@ -494,12 +494,43 @@ no probability-based rule can catch at any threshold. It is the same limitation
 the test-set audit found in its two confident misreads, and it needs a better
 classifier rather than a better policy.
 
+### The decision, and why it is not the rule's answer
+
+**`TRIAGE_URGENT_PROB` is set to 0.10.** It reaches 6 of the 11 misclassified
+validation ulcers against 0.20's 3, and sends **no benign case at all** for
+urgent care — 0 of 685. Doubling the benefit at zero measured cost is not a
+close call.
+
+**0.02, which the stated rule selected, was not adopted**, and the reasoning
+belongs in the write-up rather than buried in a config comment:
+
+- The rule's cost budget never bound, so the rule was not doing the job it was
+  designed for. It was meant to trade benefit against cost; with no cost
+  pressure anywhere on the grid it reduced to "maximise benefit", and its answer
+  is the end of the grid rather than an optimum.
+- 2% of the probability mass in a four-class softmax sits close to the noise
+  floor. Validation is drawn from the same clinical sources as training, so it
+  cannot show what a flatter, less confident vector from a phone photograph
+  would do at that threshold. 0.10 keeps a five-fold margin.
+
+Departing from a pre-stated selection rule needs justifying, which is why both
+numbers are reported. The defensible claim is that the sweep established the
+configured 0.20 was too conservative — that part is unambiguous — and that the
+operating point within the affordable range was then chosen on robustness
+grounds validation could not measure.
+
+**`TRIAGE_REVIEW_PROB` stays at 0.20.** The sweep preferred 0.30, but the two
+are identical on validation (576/576 serious referred, 3/685 benign), so there
+is nothing to gain.
+
 ### Limitations of this measurement
 
-- **The measured test-set figures above use the configured 0.20 threshold**,
-  which the validation sweep then found too conservative. Whichever value is
-  finally adopted, state which one produced each reported figure — the audit
-  and the sweep are not interchangeable.
+- **The measured test-set figures above were produced at the old 0.20
+  threshold**, before the validation sweep moved it to 0.10. They are therefore
+  a *lower bound* on what the shipped policy does: at 0.10 escalation fires
+  more often and reaches more misreads. Re-run `src/audit_triage.py` and
+  replace them before submission, and until then label every triage figure in
+  this section with the threshold that produced it.
 - **Zero false referrals is a test-set result, not a guarantee.** The upper
   confidence bound is 0.7% for healthy cases, so up to about four in every 556
   is consistent with this evidence.
@@ -984,11 +1015,11 @@ Done: ResNet50 is trained on the current split (5.4, WBS 5.6); `evaluate.py`,
 the paired significance testing is complete, overall and within every class
 and source. Every figure above comes from one consistent result set.
 
-1. **Decide the urgent threshold and re-run the test audit.** The validation
-   sweep (§4) found 0.20 too conservative — it escalates 3 of 11 misclassified
-   ulcers where 0.02 escalates 10, at a cost of two unnecessary urgent
-   referrals. Adopting a lower value means re-running `src/audit_triage.py` so
-   the reported test figures match the shipped threshold.
+1. **Re-run `src/audit_triage.py` at the new 0.10 threshold.** The urgent
+   threshold moved from 0.20 to 0.10 after the validation sweep (§4), so the
+   test-set triage figures in that section predate the change and understate
+   what the shipped policy does. Seconds on CPU, no retraining, no re-run of
+   inference — but it must be done before the numbers are quoted.
 2. **External validation** — 20–50 photographs taken independently, scored
    through the prototype's batch tab. The highest-value addition remaining, and
    the only evidence that would settle which model to recommend (§7); check
