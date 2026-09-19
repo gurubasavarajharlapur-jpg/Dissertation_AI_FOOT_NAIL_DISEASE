@@ -137,14 +137,32 @@ def main() -> int:
     print(f"  misclassified by the model: {len(missed)}")
     if len(missed):
         caught = int(missed["referred"].sum())
+        # Referral and urgency are different questions, and reporting only the
+        # first flatters the policy. An ulcer misread as a wound IS referred,
+        # because wound already maps to "prompt" — but "within a few days" is
+        # the wrong timeframe for an ulcer, which needs 24 hours. Separate the
+        # two so the write-up can state what escalation actually contributed.
+        at_urgent = int((missed["band"] == "urgent").sum())
         print(f"  still routed to care      : {rate(caught, len(missed))}")
+        print(f"  reached the URGENT band   : {rate(at_urgent, len(missed))}")
         print()
-        print(f"    {'predicted as':<24}{'band':<12}{'referred':<10}top prob")
+        print(f"    {'predicted as':<24}{'band':<12}{'escalated':<11}"
+              f"{'outcome':<29}top prob")
         for _, row in missed.iterrows():
+            if row["band"] == "urgent":
+                outcome = "correct urgency"
+            elif row["referred"]:
+                outcome = "referred, slower than ideal"
+            else:
+                outcome = "NOT REFERRED"
             print(f"    {config.CLASS_DISPLAY_NAMES[row['predicted']]:<24}"
                   f"{config.TRIAGE_BANDS[row['band']]['label']:<12}"
-                  f"{'YES' if row['referred'] else 'NO — MISSED':<10}"
-                  f"{row['confidence']:.1%}")
+                  f"{('yes' if row['escalated'] else 'no'):<11}"
+                  f"{outcome:<29}{row['confidence']:.1%}")
+
+        by_escalation = int(missed["escalated"].sum())
+        print(f"\n  {by_escalation} of {len(missed)} had urgency corrected BY ESCALATION; "
+              f"the rest reached\n  their band from the predicted class alone.")
         if caught < len(missed):
             print(f"\n  {len(missed) - caught} ulcer(s) reach a patient as 'no referral "
                   f"needed'. This is the number to state in the limitations.")
@@ -155,8 +173,21 @@ def main() -> int:
     print("-" * 78)
     for name in ("healthy", "nail_fungal"):
         group = frame[frame["true"] == name]
-        print(f"  {config.CLASS_DISPLAY_NAMES[name]:<24} referred: "
+        print(f"  {config.CLASS_DISPLAY_NAMES[name]:<24} referred (urgent/prompt): "
               f"{rate(int(group['referred'].sum()), len(group))}")
+    # A raise that stops short of urgent/prompt is still a cost — someone told
+    # to book a routine appointment they did not need — so it is counted rather
+    # than hidden by a threshold chosen for this table.
+    benign = frame[~frame["truly_serious"]]
+    bumped = benign[benign["escalated"]]
+    print(f"  {'raised a band but below':<24} referral threshold: "
+          f"{rate(int((bumped['band'] == 'routine').sum()), len(benign))}")
+    # Over-escalation within the serious classes: a wound sent at ulcer speed.
+    wounds = frame[frame["true"] == "foot_wound"]
+    print(f"  {'true wounds raised to':<24} urgent: "
+          f"{rate(int((wounds['band'] == 'urgent').sum()), len(wounds))}")
+    print("    (over-caution rather than harm — a wound seen within 24h is not a "
+          "clinical\n     error, but it is appointments the policy spends.)")
 
     # ---- 4. Policy comparison ----------------------------------------------
     print("\n" + "-" * 78)
