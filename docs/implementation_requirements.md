@@ -45,7 +45,8 @@ commit to addressing them, so they are flagged rather than assumed:
 | Gap | Source | Decision |
 |---|---|---|
 | Model interpretability; Grad-CAM named explicitly | 2.5.8 | **Implemented.** Grad-CAM overlays for correct and misclassified test predictions (`src/evaluate.py`), and on every prediction in the prototype. |
-| External validation on an independent dataset | 2.5.8; 2.5.5 | **Supported.** The prototype's batch tab scores independently captured photographs against the test split. Collecting them is the author's step. |
+| External validation on an independent dataset | 2.5.8; 2.5.5 | **Done, at small scale.** Ten phone photographs of five healthy subjects, two backgrounds each, scored through the prototype's batch tab: 6 of 10 correct against 98.32% on test (§5.5 of `findings_and_analysis.md`). Small and healthy-only, so it establishes the direction of the drop and not its size. |
+| Behaviour on conditions outside the label space | 2.5.8 | **Measured.** `src/ood_test.py` scores the 578 excluded nail-dystrophy images: confidence indistinguishable from in-distribution, 98.4% still routed to care. |
 | Cross-validation | 2.5.5 | Out of scope; not required by the proposal. |
 
 ## Additions beyond the proposal
@@ -140,9 +141,14 @@ consistent result set.
 | — | Confound validation | Complete — within-source, Grad-CAM and controlled occlusion ablation, both models |
 | — | Paired significance testing | Complete — McNemar exact overall, per class and per source, plus a paired bootstrap CI |
 
-Remaining is evidence-gathering rather than implementation: optional external
-validation with independently captured photographs through the prototype's
-batch tab.
+| — | External validation | Complete at small scale — 10 phone photographs, 5 subjects, paired by background |
+| — | Out-of-distribution probe | Complete — 578 excluded nail-dystrophy images |
+
+Nothing in the proposal's work plan remains unimplemented. What remains is
+optional and is evidence-gathering rather than implementation: more external
+photographs, and in particular photographs of genuine disease, since the ten
+collected so far are all of healthy feet and therefore cannot measure a missed
+diagnosis.
 
 ## Dataset limitations to state in the dissertation
 
