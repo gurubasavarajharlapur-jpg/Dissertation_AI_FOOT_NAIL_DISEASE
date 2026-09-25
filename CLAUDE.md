@@ -35,6 +35,7 @@ python src/ablate_border.py --model mobilenetv2   # occlusion confound test
 python src/compare_models.py           # paired significance, from saved CSVs
 python src/audit_triage.py             # what the triage policy does to the test set
 python src/sweep_thresholds.py         # tune triage thresholds on VALIDATION
+python src/ood_test.py                 # score the excluded nail-dystrophy images
 streamlit run src/prototype/app.py     # two-tab screening prototype
 
 python src/colab_sync.py status        # Colab: what is saved to Drive
