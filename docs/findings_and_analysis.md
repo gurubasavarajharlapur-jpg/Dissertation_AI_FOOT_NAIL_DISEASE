@@ -1131,6 +1131,19 @@ nothing here bounds seed-to-seed variance. Say "on this split" rather than
 implying the ordering is stable; k-fold or repeated seeds would fix it and were
 not affordable in the available GPU time.
 
+**The system has no reject class, and this is now measured rather than
+asserted.** Every image receives one of the four labels. On 578 images of a
+condition outside that vocabulary, 97.8% were labelled nail fungal infection and
+2.2% healthy, with confidence indistinguishable from in-distribution data (§3).
+What limits the harm is that the nearest label happens to carry a referral — a
+property of this class set rather than a designed safeguard.
+
+**Confidence does not signal that an input is outside the label space.** Median
+confidence on the unknown condition was 0.9997 against 0.9998 on the test set,
+and the abstention threshold declined 2.6% of unknown images against 3.0% of
+known ones. No threshold on confidence can separate representable input from
+unrepresentable input in this system.
+
 **The abstention threshold is model-specific and was not transferable.**
 MobileNetV2 got 0.787, ResNet50 got 0.000 because it met the target answering
 everything on validation. A threshold chosen this way carries no guarantee on
