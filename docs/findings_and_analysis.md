@@ -17,6 +17,9 @@ decision. Written to be quoted from directly when drafting the dissertation.
   lower: 6 of 10 correct, 95% CI [31%, 83%]** (§5.5). All four errors are false
   positives — healthy read as a wound — and the abstention threshold declined
   three of them, lifting accuracy on answered cases to 4 of 5 at 50% coverage.
+  Within that set **every plain-background photograph was correct and four of
+  five patterned ones were wrong**, all four discordant pairs pointing the same
+  way (p = 0.1250 — the best a five-pair design reaches short of unanimity).
   Ten images bound nothing precisely, but 98.32% sits well outside that interval,
   so the drop under real acquisition conditions is the qualification every
   accuracy figure here has to carry.
@@ -1486,7 +1489,9 @@ comes from one consistent result set.
    exists for phone images and the safety case is untested in the direction that
    matters; (b) **20–30 background pairs**, the size at which the plain vs
    patterned observation could reach significance — five pairs cannot, whatever
-   the outcome; (c) **the same photographs scored through ResNet50**, since
+   the outcome, and with the corrected labels all four discordant pairs point the
+   same way at p = 0.1250, making this the measurement most likely to become an
+   established effect; (c) **the same photographs scored through ResNet50**, since
    §5.5 ran MobileNetV2 only and therefore does not arbitrate between the
    architectures under shift.
 2. **Optional, if GPU time allows: a second seed for each architecture.** Would
