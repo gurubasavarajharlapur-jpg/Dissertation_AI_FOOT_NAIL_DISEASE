@@ -10,9 +10,16 @@ decision. Written to be quoted from directly when drafting the dissertation.
 - **Foot ulcer recall 98.5% / 95.5%** — the clinically costly error, reported
   ahead of overall accuracy.
 - **Three independent tests confirm the models classify pathology, not dataset
-  provenance** (§5): 98.99% accuracy within a single source, Grad-CAM attention
-  on toes and nail plates, and a controlled occlusion ablation with an
+  provenance** (§5.1–§5.4): 98.99% accuracy within a single source, Grad-CAM
+  attention on toes and nail plates, and a controlled occlusion ablation with an
   equal-area interior control.
+- **Accuracy on phone photographs taken outside every source dataset is far
+  lower: 6 of 10 correct, 95% CI [31%, 83%]** (§5.5). All four errors are false
+  positives — healthy read as a wound — and the abstention threshold declined
+  three of them, lifting accuracy on answered cases to 4 of 5 at 50% coverage.
+  Ten images bound nothing precisely, but 98.32% sits well outside that interval,
+  so the drop under real acquisition conditions is the qualification every
+  accuracy figure here has to carry.
 - **No statistically significant accuracy difference between the two
   architectures** — McNemar's exact test, p = 0.15, with any real difference
   bounded at +1.4 points at 95% confidence. On the confound-free comparison
@@ -410,8 +417,11 @@ no threshold placed on it can separate the two. Selective prediction protects
 against *uncertain* errors; it does not protect against being out of the label
 space, and this quantifies that.
 
-It corroborates the external-validation observation (§5.9) where the model was
-more confident when wrong (98.6%) than when right (89.2%).
+The contrast with the external validation photographs (§5.5) is sharper than it
+looks and is developed there: on those, confidence *did* fall — mean 0.7789
+against 0.9824 on test — and the threshold declined half of them. Confidence
+responds to an unfamiliar photograph of a familiar thing; it does not respond to
+a condition the model has no class for.
 
 **The practical outcome is nonetheless mostly benign, for a reason worth
 stating separately.**
@@ -597,8 +607,10 @@ That is also the reason not to read 0.02 as simply optimal. The cost of a low
 threshold is paid under *distribution shift* — on a phone photograph in poor
 light, where the probability vector is flatter and 2% ulcer mass may mean
 nothing — and validation, drawn from the same clinical sources as training,
-cannot measure that. The external validation photographs (§12) are the evidence
-that would settle it.
+cannot measure that. The external validation photographs (§5.5) are the
+evidence that would settle it — and they show the probability vector does
+flatten under acquisition shift, which is the condition under which a low
+threshold starts to cost something.
 
 **One ulcer is unreachable.** Even at 0.02 the figure is 10 of 11: one
 misclassified ulcer carries less than 2% ulcer probability, a confident error
@@ -703,7 +715,7 @@ policy rather than on its tuning.
 
 ---
 
-## 5. Validation: both models read pathology, not dataset artefacts
+## 5. Validation: internally against confounding, and once externally
 
 Each class is drawn largely from one source, so a model could in principle score
 well by recognising which dataset an image came from rather than the condition.
@@ -711,11 +723,15 @@ well by recognising which dataset an image came from rather than the condition.
 weakness in the published work, so this project tested for it three independent
 ways instead of assuming it away.
 
-**All three tests passed, for both architectures.** This is the strongest
-methodological contribution in the project, and the evidence behind every
-accuracy figure reported above.
+**All three tests passed, for both architectures** (§5.1–§5.4). This is the
+strongest methodological contribution in the project, and the evidence behind
+every accuracy figure reported above.
 
-### 4.1 Within-source discrimination — passed
+Those three tests all use the study's own data. §5.5 adds the one test that does
+not: ten photographs taken on a phone, outside every source dataset. It is the
+section that qualifies every accuracy figure in this document.
+
+### 5.1 Within-source discrimination — passed
 
 `mendeley_foot` contributes 789 test images containing **both** Healthy (413) and
 Foot Wound (376) — same clinic, same cameras, same framing, same lighting. On
@@ -742,7 +758,7 @@ the study the two architectures are **statistically indistinguishable**
 in MobileNetV2's favour). The compact model matches an architecture ten times
 its size exactly where the comparison is cleanest.
 
-### 4.2 Grad-CAM — passed
+### 5.2 Grad-CAM — passed
 
 Attention localises to **toes and nail plates**, with image margins cold —
 the model looks where a clinician looks. Consistent across every example
@@ -750,7 +766,7 @@ inspected, and generated for misclassified predictions as well as correct ones
 rather than curating successes. Figures for both models at
 `results/figures/<model>_gradcam.png`.
 
-### 4.3 Controlled occlusion ablation — passed
+### 5.3 Controlled occlusion ablation — passed
 
 A note on method first, because it is the part worth defending in a viva.
 Masking the border and observing that accuracy holds proves nothing on its own:
@@ -783,7 +799,7 @@ interior pixels costs 12.3 — roughly eight times more.** For ResNet50 it is 1.
 against 8.7, about 4.5 times. Neither model's decision depends on the frame;
 both depend on the foot.
 
-### 4.4 MobileNetV2 is additionally the more robust of the two
+### 5.4 MobileNetV2 is additionally the more robust of the two
 
 The ablation's fourth arm masks the *interior* and leaves only a 20px frame, to
 measure how much either model could read from the border alone:
@@ -813,6 +829,164 @@ It does not affect either model's validity — §5.3 establishes that neither
 *relies* on the border, which is the question that matters — but it is a
 further measured argument for the compact architecture, and a good answer to
 "why not just use the bigger model?"
+
+### 5.5 External validation — photographs taken outside every study source
+
+Everything above is measured on images from the three clinical datasets the
+models were trained on. The one question that data cannot answer is whether the
+model works on a photograph taken the way the system is meant to be used: a
+phone, in an ordinary room, by someone who is not a photographer. Ten such
+photographs were collected and scored through the prototype's batch tab.
+
+**What was collected.** Five individuals — the author and four friends — with
+two photographs of each: one against a plain background, one against a
+patterned background. That is **5 matched pairs, 10 images**, named
+`s<subject>_<background>.jpeg`. The pairing is deliberate: it makes the
+background comparison a *paired* test rather than two independent samples, on a
+sample size where that distinction is the difference between a usable
+measurement and none. Every subject had healthy feet with no visible wound,
+ulcer or nail disease, so the true label for all ten images is `healthy`. Scored
+with **MobileNetV2, temperature-calibrated, abstention threshold 0.787** — the
+exact configuration §3 recommends for deployment, not a more permissive one.
+
+| Image | True | Predicted | Correct | Confidence | Answered at 0.787 |
+|---|---|---|---|---|---|
+| s1_plain | healthy | healthy | ✓ | 0.9988 | answered |
+| s1_patterned | healthy | **foot_wound** | ✗ | **0.9219** | answered |
+| s2_plain | healthy | **foot_wound** | ✗ | 0.6376 | abstained |
+| s2_patterned | healthy | healthy | ✓ | 0.9058 | answered |
+| s3_plain | healthy | healthy | ✓ | 0.7917 | answered |
+| s3_patterned | healthy | **foot_wound** | ✗ | 0.7824 | abstained |
+| s4_plain | healthy | healthy | ✓ | 0.8595 | answered |
+| s4_patterned | healthy | healthy | ✓ | 0.5311 | abstained |
+| s5_plain | healthy | healthy | ✓ | 0.7528 | abstained |
+| s5_patterned | healthy | **foot_wound** | ✗ | 0.6074 | abstained |
+
+**Accuracy falls from 98.32% on the test split to 60.0% here — a drop of 38.3
+percentage points.**
+
+| | Correct | Accuracy | 95% Wilson CI |
+|---|---|---|---|
+| **All photographs** | 6 / 10 | **0.600** | [0.313, 0.832] |
+| Plain background | 4 / 5 | 0.800 | [0.376, 0.964] |
+| Patterned background | 2 / 5 | 0.400 | [0.118, 0.769] |
+
+This is the single most important number in the study for anyone deciding
+whether to deploy the system, and it is the number the internal validation in
+§5.1–§5.4 could not have produced. Those tests establish that the model reads
+pathology rather than dataset provenance — a necessary condition, and it holds.
+They say nothing about performance when the *acquisition conditions* change, and
+this measurement shows that is where the model actually breaks.
+
+**Report the interval, not the point estimate.** Ten images give a 95%
+confidence interval of [31.3%, 83.2%], which is wide enough to include figures
+that would be tolerable and figures that would be unusable. The honest claim is
+directional and it is still strong: **accuracy on phone photographs is
+substantially below the test-split figure**, because 98.32% sits far outside that
+interval. What cannot be claimed from ten images is the size of the drop.
+
+**Every error is the same error, and it is in the safe direction.** All four
+mistakes are `healthy → foot_wound`: false positives. Nothing healthy was called
+an ulcer, and nothing was missed in the dangerous direction. That is the
+asymmetry the triage policy was designed around working as intended — but it is
+*not* evidence that the system is safe on phone photographs, for a reason that
+has to be stated plainly: **all ten subjects were healthy, so this set cannot
+measure a false negative at all.** The failure mode that matters — a real ulcer
+photographed on a phone and reported as healthy — is untested here and untestable
+with this data. Section 12 keeps it as outstanding work rather than treating the
+false-positive direction as reassurance.
+
+**Do not quote macro F1 or macro recall from this set.** They compute to 0.188
+and 0.150, and both figures are meaningless: three of the four classes have zero
+support, so the macro average divides real performance on one class by four. The
+meaningful figures are **healthy recall 6/10 = 0.600** and a **false-positive
+rate of 4/10**. A reviewer who sees "macro F1 0.19" and no explanation will read
+it as catastrophic failure; the number is an artefact of averaging over classes
+that are absent.
+
+**The background effect is visible but not established.** Plain backgrounds
+scored 4/5 and patterned 2/5. Because the design is paired, the right test is
+McNemar's on the 5 subjects rather than a comparison of the two proportions:
+**4 of 5 pairs are discordant, 3 of them in favour of the plain background,
+exact p = 0.6250.** Not significant, and it could not have been — with five
+pairs the smallest attainable two-sided p-value is 0.0625, so this design is
+incapable of reaching significance whatever the result. State it as an
+observation with a mechanism, not a finding: a patterned background gives the
+network edge and texture structure in the region surrounding the foot, which is
+exactly the kind of incidental detail §5.4 showed the model can pick up. Testing
+it properly needs roughly 20–30 pairs.
+
+**Abstention worked here, and this is the result that should change how the
+mechanism is described.**
+
+| | Value | 95% Wilson CI |
+|---|---|---|
+| Coverage (answered at 0.787) | 5 / 10 = **50.0%** | [23.7%, 76.3%] |
+| Accuracy on answered | 4 / 5 = **80.0%** | [37.6%, 96.4%] |
+| Errors declined | **3 of 4** | — |
+
+The threshold caught three of the four errors and lifted accuracy from 60% to
+80% on the cases it answered — at the cost of declining half of them. On the
+test split the same threshold declined 3.0% of images; here it declined 50%.
+**That behaviour is exactly what a referral threshold should do under
+distribution shift**: when the input is unlike anything the model was fitted on,
+the probability vector flattens, confidence falls, and the system stops
+answering instead of guessing. Coverage collapsing from 97% to 50% is not a
+malfunction — it is the mechanism reporting that it is out of its depth, in the
+only way it can.
+
+**One error survived at 0.9219 confidence.** `s1_patterned` was called a foot
+wound with 92% confidence, above any threshold that leaves the system usable.
+So abstention reduces the error rate under shift; it does not floor it. A
+threshold high enough to catch that case would decline almost everything.
+
+**Mean confidence is the corroborating detail.** Across these ten photographs
+mean confidence was **0.7789**, against **0.9824** on the test split — the model
+is measurably less certain on phone photographs even where it is right. Within
+this set, confidence was *lower* on the four errors (0.7373) than on the six
+correct predictions (0.8066), which is the ordering a calibrated model should
+show and the reason abstention worked.
+
+**What the triage policy does with these ten.** Four images were predicted as
+wounds, which maps to the *prompt* band; two of the healthy predictions were
+abstentions, which the policy raises to *routine* because an inconclusive
+screening never reassures. So **at least 6 of these 10 healthy people are routed
+to a clinician, and at most 4 are told no action is needed** — bounds rather than
+exact counts, because escalation on wound/ulcer probability mass can only raise a
+band, never lower it. Set that against the test split, where **0 of 556** healthy
+images were referred for urgent or prompt care. The false-referral cost of the
+safety-first policy, which measured as free on in-distribution data, is
+**substantial under acquisition shift**, and that is the trade the deployment
+argument has to be made on: the policy protects against the dangerous error by
+sending a large fraction of healthy phone photographs to a clinic.
+
+**The contrast with §3's out-of-distribution test is the methodological point
+worth making.** Two shifts were measured, and the same safety mechanism behaved
+in opposite ways:
+
+| | Nail dystrophy (§3) | Phone photographs (§5.5) |
+|---|---|---|
+| Kind of shift | **label space** — a condition with no class | **acquisition** — known classes, new camera and setting |
+| Mean confidence | 0.9807 (test: 0.9824) | **0.7789** (test: 0.9824) |
+| Declined by the threshold | 2.6% (test: 3.0%) | **50%** |
+| Errors the threshold caught | not detectable | **3 of 4** |
+
+**Confidence-based abstention detects acquisition shift and does not detect
+label-space shift.** That is a coherent mechanism, not a contradiction: an
+unfamiliar image *of a familiar kind of thing* produces weaker evidence for every
+class and a flatter probability vector, whereas a nail condition the model has no
+word for still looks exactly like the nail class it most resembles, so the vector
+stays sharp. The practical consequence for the write-up is that the abstention
+threshold should be presented as **a defence against poor or unfamiliar image
+capture, not as an "I don't know" button** — it cannot tell you the condition is
+outside its vocabulary, and §3 quantifies how completely it fails at that.
+
+**Reproducibility.** The per-image results come from
+`results/metrics/batch_per_image_mobilenetv2.csv`, written by the prototype's
+batch tab, which carries the full calibrated probability vector per image
+alongside the prediction, so every figure in this section can be recomputed
+without re-running inference. The photographs themselves are of identifiable
+individuals and are not committed to the repository.
 
 ---
 
@@ -885,6 +1059,17 @@ missed ulcers, bought at 10.4× the parameters, 9.7× the storage and 1.9× the
 CPU latency. A dissertation that reports only "ResNet50 scored higher" has not
 answered the research question — it has not established that the difference is
 real, nor priced it. This one does both.
+
+**The external validation does not change this recommendation, and the reason
+matters.** §5.5 was run on MobileNetV2 only, so it compares that model against
+its own test-split performance, not against ResNet50. It therefore qualifies
+*how well the recommended system works* — substantially less well on phone
+photographs — without touching the grounds on which the architecture was chosen,
+all four of which are paired comparisons on identical data. The correct reading
+is that the choice between the two models stands, and the claim about absolute
+performance has to be stated for the deployment condition rather than the test
+split. Confirming that the ordering also holds under shift needs ResNet50 scored
+on the same photographs (§12).
 
 One honest qualification to carry into the discussion. Failing to establish a
 difference is not the same as establishing equivalence, and with 1,248 test
@@ -1073,13 +1258,45 @@ result?"**
 
 **"How would this perform in an actual rural clinic?"**
 
-> That is the open question and I state it as one. All three sources are
-> clinical datasets, so what I demonstrate is that the approach works on
-> clinical photographs and is small and fast enough to run on a phone. The
-> framing throughout is "motivated by rural screening", not "validated for
-> rural deployment". The prototype includes a batch evaluation tab specifically
-> so independently captured photographs can be scored against these figures,
-> which is the natural next step.
+> That is the open question and I have the beginning of an answer rather than a
+> claim. All three sources are clinical datasets, so what the test split
+> demonstrates is that the approach works on clinical photographs and is small
+> and fast enough to run on a phone. I also scored ten phone photographs taken
+> outside all three sources, and accuracy there was 6 of 10 — far below 98.32%.
+> Ten images bound nothing precisely, but they are enough to say the framing
+> must stay "motivated by rural screening" rather than "validated for rural
+> deployment", and enough to identify where the work should go next.
+
+**"You report 98.32% accuracy and then 60% on your own photographs. Which is
+it?"**
+
+> Both, and the pair is the finding. 98.32% is measured once on 1,248 held-out
+> clinical images and it is correct for that condition. 60% is measured on ten
+> phone photographs taken in an ordinary room, and it is correct for that
+> condition. The gap is distribution shift, and reporting only the first figure
+> would have been the mistake. Three things make the second number usable rather
+> than just discouraging. All four errors are false positives — healthy read as a
+> wound — so nothing was missed in the dangerous direction, though with ten
+> healthy subjects I also cannot measure the dangerous direction. The abstention
+> threshold declined three of the four errors, which lifted accuracy on answered
+> cases to 4 of 5; coverage fell from 97% to 50%, and a referral threshold
+> collapsing like that under shift is the mechanism working, not failing. And the
+> confidence interval is [31%, 83%], so what I claim is the direction of the drop,
+> not its size.
+
+**"If your out-of-distribution test showed abstention doesn't work, why do you
+credit it on the phone photographs?"**
+
+> Because the two tests measure different shifts and the mechanism genuinely
+> distinguishes them. On 578 images of nail dystrophy — a condition with no class
+> — median confidence was 0.9997 against 0.9998 on the test set, and 2.6% were
+> declined against 3.0%: no signal at all. On the phone photographs mean
+> confidence fell from 0.9824 to 0.7789 and half were declined. An unfamiliar
+> photograph of a familiar thing gives weak evidence for every class and a flat
+> probability vector; a condition the model has no word for still looks like the
+> nail class it most resembles, so the vector stays sharp. So the threshold is a
+> defence against poor image capture, not an "I don't know" button, and I say that
+> rather than claiming it is a general safeguard.
 
 ---
 
@@ -1112,7 +1329,27 @@ toenails is not demonstrated by this data.
 healthcare" is the *motivation*; nothing here demonstrates performance in that
 setting. Phrase accordingly — "motivated by", not "demonstrated for".
 
-**OpenCV is listed in §5.5 but unused.** Pillow and NumPy cover the pipeline.
+**The external validation set is ten images and one phone.** §5.5 is the only
+evidence in this study from outside the source datasets, and it is 5 subjects,
+2 photographs each, one camera, indoor lighting, one operator. It establishes a
+direction — accuracy is substantially lower on phone photographs — and no
+magnitude: the 95% interval runs from 31% to 83%. Camera model, lighting and
+operator are all confounded with "not the source datasets", so the drop cannot
+be attributed to any one of them.
+
+**The external set contains no disease, so no false negative is measurable on
+it.** All ten subjects were healthy. The error that matters clinically — a real
+ulcer photographed on a phone and reported as healthy — is untested. The four
+observed errors all run in the safe direction, which is reassuring about the
+policy and says nothing about the dangerous direction.
+
+**Under acquisition shift the safety-first policy stops being free.** On the
+test split it referred 0 of 556 healthy images for urgent or prompt care; on the
+ten phone photographs at least 6 of 10 healthy people are routed to a clinician
+(§5.5). The cost of the policy is measured on in-distribution data only, and it
+is a lower bound everywhere else.
+
+**OpenCV is listed in the proposal's resource list but unused.** Pillow and NumPy cover the pipeline.
 Amend the resource list or note the substitution.
 
 **MobileNetV2 stopped on its epoch allowance, not on convergence.** It ran the
@@ -1219,10 +1456,16 @@ source; and the triage thresholds have been swept on validation and the policy
 audited on test at both the old and the adopted threshold. Every figure above
 comes from one consistent result set.
 
-1. **External validation** — 20–50 photographs taken independently, scored
-   through the prototype's batch tab. The highest-value addition remaining, and
-   the only evidence that would settle which model to recommend (§7); check
-   whether ethics approval is required first.
+1. **External validation — started, and it is the work most worth extending.**
+   Ten photographs of five healthy subjects have been collected and scored
+   (§5.5). Three extensions would each answer a question the current set cannot:
+   (a) **photographs of real disease**, without which no false-negative rate
+   exists for phone images and the safety case is untested in the direction that
+   matters; (b) **20–30 background pairs**, the size at which the plain vs
+   patterned observation could reach significance — five pairs cannot, whatever
+   the outcome; (c) **the same photographs scored through ResNet50**, since
+   §5.5 ran MobileNetV2 only and therefore does not arbitrate between the
+   architectures under shift.
 2. **Optional, if GPU time allows: a second seed for each architecture.** Would
    bound the seed-to-seed variance noted in §9. Not required by the proposal.
 3. **Optional: more ulcer test images.** The one trend in the study (p = 0.07)
