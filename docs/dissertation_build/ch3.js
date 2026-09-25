@@ -50,6 +50,7 @@ c.push(P('The chapter continues with the datasets and how they were prepared, th
 // ---- 3.2 -----------------------------------------------------------------
 c.push(H2('3.2  Datasets'));
 c.push(P('Three publicly available image collections were used. No new clinical data was gathered, and no patient-identifiable information was handled at any point. Table 3.1 lists the sources and what each contributes.'));
+c.push(P('The healthy and wound images come from the Lower Limb and Feet Wound Image Dataset published on Mendeley Data (Islam, 2026), which is distributed under a Creative Commons licence and includes a control group of healthy feet alongside the wound photographs. The nail images come from the onychomycosis dataset published on figshare by Han (2017) and described in Han et al. (2018). The foot ulcer images come from the dataset released by Wang et al. (2020) alongside their work on automatic wound segmentation. All three are cited in full in the references.'));
 c.push(cap('3.1', 'Source datasets and their contribution to each class.'));
 c.push(T([3000, 2200, 2000, 1000], [
   ['Source', 'Folder used', 'Class', 'Images'],

@@ -106,61 +106,144 @@ children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADI
   children: [new TextRun({ text: 'References', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { before: 100, after: 200, line: 300 },
   shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'CHECK THE STYLE, AND FILL THE GAPS BELOW.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'This list combines the bibliography from your submitted proposal, the works cited in Chapter 2, and the works cited in Chapters 3 to 7, in one alphabetical sequence. Check it against the referencing style your programme requires, and read the box at the end of the list: nine citations that appear in Chapter 2 have no entry here because their source could not be established, and each needs either a full reference or removal from the text.', size: 20, italics: true, font: 'Calibri' }) ] }));
-[
- 'Almufadi, N.F., Alhasson, H.F. and Alharbi, S.S. (2025) ‘E-DFu-Net: An efficient deep convolutional neural network model for diabetic foot ulcer classification’, Biomolecules and Biomedicine, 25(2), pp. 445–460.',
- 'Armstrong, D.G., Boulton, A.J.M. and Bus, S.A. (2017) ‘Diabetic foot ulcers and their recurrence’, New England Journal of Medicine, 376(24), pp. 2367–2375.',
- 'Cassidy, B., Kendrick, C., Reeves, N.D., Pappachan, J.M., O’Shea, C., Armstrong, D.G. and Yap, M.H. (2021) ‘Diabetic Foot Ulcer Grand Challenge 2021: evaluation and summary’, arXiv preprint.',
- 'Deloitte (2024) Artificial Intelligence in Healthcare: Current Applications and Future Opportunities. Deloitte Insights.',
- 'Esteva, A., Kuprel, B., Novoa, R.A., Ko, J., Swetter, S.M., Blau, H.M. and Thrun, S. (2017) ‘Dermatologist-level classification of skin cancer with deep neural networks’, Nature, 542(7639), pp. 115–118.',
- 'Esteva, A., Robicquet, A., Ramsundar, B., Kuleshov, V., DePristo, M., Chou, K., Cui, C., Corrado, G., Thrun, S. and Dean, J. (2019) ‘A guide to deep learning in healthcare’, Nature Medicine, 25(1), pp. 24–29.',
- 'Girmaw, D.W. and Taye, G.B. (2025) ‘MobileNetV2 model for detecting and grading diabetic foot ulcer’, Discover Applied Sciences, 7(268), pp. 1–20.',
- 'Goodfellow, I., Bengio, Y. and Courville, A. (2016) Deep Learning. Cambridge, MA: MIT Press.',
- 'Guo, C., Pleiss, G., Sun, Y. and Weinberger, K.Q. (2017) ‘On calibration of modern neural networks’, Proceedings of the 34th International Conference on Machine Learning, pp. 1321–1330.',
- 'He, K., Zhang, X., Ren, S. and Sun, J. (2016) ‘Deep residual learning for image recognition’, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pp. 770–778.',
- 'Howard, A., Sandler, M., Chu, G., Chen, L.-C., Chen, B., Tan, M., Wang, W., Zhu, Y., Pang, R., Vasudevan, V., Le, Q.V. and Adam, H. (2019) ‘Searching for MobileNetV3’, Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 1314–1324.',
- 'Howard, A.G., Zhu, M., Chen, B., Kalenichenko, D., Wang, W., Weyand, T., Andreetto, M. and Adam, H. (2017) ‘MobileNets: efficient convolutional neural networks for mobile vision applications’, arXiv preprint arXiv:1704.04861.',
- 'Howard, J. and Ruder, S. (2018) ‘Universal language model fine-tuning for text classification’, Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics, pp. 328–339.',
- 'Huang, H.N., Zhang, T., Yang, C.T., Sheen, Y.J. and Chen, H.M. (2022) ‘Image segmentation using transfer learning and Fast R-CNN for diabetic foot wound treatments’, Frontiers in Public Health, 10, pp. 1–15.',
- 'International Working Group on the Diabetic Foot (2023) IWGDF Guidelines on the Prevention and Management of Diabetic Foot Disease. Amsterdam: IWGDF.',
- 'Krizhevsky, A., Sutskever, I. and Hinton, G.E. (2012) ‘ImageNet classification with deep convolutional neural networks’, Advances in Neural Information Processing Systems, 25, pp. 1097–1105.',
- 'LeCun, Y., Bengio, Y. and Hinton, G. (2015) ‘Deep learning’, Nature, 521(7553), pp. 436–444.',
- 'Litjens, G., Kooi, T., Bejnordi, B.E., Setio, A.A.A., Ciompi, F., Ghafoorian, M., van der Laak, J.A.W.M., van Ginneken, B. and Sánchez, C.I. (2017) ‘A survey on deep learning in medical image analysis’, Medical Image Analysis, 42, pp. 60–88.',
- 'Oltu, B., Karaca, B.K., Erdem, H. and Özgür, A. (2021) ‘A systematic review of transfer learning based approaches for diabetic retinopathy detection’, arXiv preprint.',
- 'Pan, S.J. and Yang, Q. (2010) ‘A survey on transfer learning’, IEEE Transactions on Knowledge and Data Engineering, 22(10), pp. 1345–1359.',
- 'Rajpurkar, P., Irvin, J., Zhu, K., Yang, B., Mehta, H., Duan, T., Ding, D., Bagul, A., Langlotz, C., Shpanskaya, K., Lungren, M.P. and Ng, A.Y. (2017) ‘CheXNet: radiologist-level pneumonia detection on chest X-rays with deep learning’, arXiv preprint arXiv:1711.05225.',
- 'Sait, A.R.W. and Nagaraj, R. (2025) ‘Diabetic foot ulcers detection model using a hybrid convolutional neural networks–vision transformers approach’, Diagnostics, 15(6), pp. 1–24.',
- 'Sandler, M., Howard, A., Zhu, M., Zhmoginov, A. and Chen, L.-C. (2018) ‘MobileNetV2: inverted residuals and linear bottlenecks’, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pp. 4510–4520.',
- 'Selvaraju, R.R., Cogswell, M., Das, A., Vedantam, R., Parikh, D. and Batra, D. (2017) ‘Grad-CAM: visual explanations from deep networks via gradient-based localization’, Proceedings of the IEEE International Conference on Computer Vision, pp. 618–626.',
- 'Shorten, C. and Khoshgoftaar, T.M. (2019) ‘A survey on image data augmentation for deep learning’, Journal of Big Data, 6(60), pp. 1–48.',
- 'Tan, M. and Le, Q.V. (2019) ‘EfficientNet: rethinking model scaling for convolutional neural networks’, Proceedings of the 36th International Conference on Machine Learning, pp. 6105–6114.',
- 'Topol, E.J. (2019) ‘High-performance medicine: the convergence of human and artificial intelligence’, Nature Medicine, 25(1), pp. 44–56.',
- 'Wang, C., Anisuzzaman, D.M., Williamson, V., Dhar, M.K., Rostami, B., Niezgoda, J., Gopalakrishnan, S. and Yu, Z. (2020) ‘Fully automatic wound segmentation with deep convolutional neural networks’, Scientific Reports, 10, 21897.',
- 'World Health Organization (2021) Global Strategy on Digital Health 2020–2025. Geneva: World Health Organization.',
- 'Yap, M.H., Cassidy, B., Pappachan, J.M., O’Shea, C., Gillespie, D. and Reeves, N. (2021) ‘Analysis towards classification of infection and ischaemia of diabetic foot ulcers’, arXiv preprint.',
-].forEach(r => children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  children: [ new TextRun({ text: 'CHECK THE STYLE AGAINST YOUR HANDBOOK.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
+    new TextRun({ text: 'One alphabetical list for the whole dissertation: the bibliography from your proposal, everything cited in Chapter 2, everything cited in Chapters 3 to 7, and the two image datasets. It is written in Harvard style, so check it against the style your programme requires. Four citations need a decision from you and are listed after the references. Delete this box afterwards.', size: 20, italics: true, font: 'Calibri' }) ] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: r, size: 21, font: 'Calibri' })] })));
-
-children.push(new Paragraph({ spacing: { before: 300, after: 200, line: 300 },
+  children: [new TextRun({ text: 'Almufadi, N.F., Alhasson, H.F. and Alharbi, S.S. (2025) ‘E-DFu-Net: an efficient deep convolutional neural network model for diabetic foot ulcer classification’, Biomolecules and Biomedicine, 25(2), pp. 445–460.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Armstrong, D.G., Boulton, A.J.M. and Bus, S.A. (2017) ‘Diabetic foot ulcers and their recurrence’, New England Journal of Medicine, 376(24), pp. 2367–2375.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Cassidy, B., Kendrick, C., Reeves, N.D., Pappachan, J.M., O’Shea, C., Armstrong, D.G. and Yap, M.H. (2021) ‘Diabetic Foot Ulcer Grand Challenge 2021: evaluation and summary’, arXiv preprint.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Deloitte (2024) Artificial Intelligence in Healthcare: Current Applications and Future Opportunities. Deloitte Insights.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Esteva, A., Kuprel, B., Novoa, R.A., Ko, J., Swetter, S.M., Blau, H.M. and Thrun, S. (2017) ‘Dermatologist-level classification of skin cancer with deep neural networks’, Nature, 542(7639), pp. 115–118.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Esteva, A., Robicquet, A., Ramsundar, B., Kuleshov, V., DePristo, M., Chou, K., Cui, C., Corrado, G., Thrun, S. and Dean, J. (2019) ‘A guide to deep learning in healthcare’, Nature Medicine, 25(1), pp. 24–29.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Girmaw, D.W. and Taye, G.B. (2025) ‘MobileNetV2 model for detecting and grading diabetic foot ulcer’, Discover Applied Sciences, 7(268), pp. 1–20.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Goodfellow, I., Bengio, Y. and Courville, A. (2016) Deep Learning. Cambridge, MA: MIT Press.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Goyal, M., Reeves, N.D., Rajbhandari, S., Ahmad, N., Wang, C. and Yap, M.H. (2020) ‘Recognition of ischaemia and infection in diabetic foot ulcers: dataset and techniques’, Computers in Biology and Medicine, 117, 103616.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Guo, C., Pleiss, G., Sun, Y. and Weinberger, K.Q. (2017) ‘On calibration of modern neural networks’, Proceedings of the 34th International Conference on Machine Learning, pp. 1321–1330.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Gupta, A.K. et al. (2022) ‘Diagnosing onychomycosis: a step forward?’, Journal of Cosmetic Dermatology, 21(2), pp. 530–535.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Han, S.S. (2017) Model Onychomycosis Training Datasets (JPG thumbnails) and Validation Datasets (JPG images) [dataset]. figshare. Available at: https://figshare.com/articles/dataset/5398573.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Han, S.S., Park, G.H., Lim, W., Kim, M.S., Na, J.I., Park, I. and Chang, S.E. (2018) ‘Deep neural networks show an equivalent and often superior performance to dermatologists in onychomycosis diagnosis: automatic construction of onychomycosis datasets by region-based convolutional deep neural network’, PLOS ONE, 13(1), e0191493.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'He, K., Zhang, X., Ren, S. and Sun, J. (2016) ‘Deep residual learning for image recognition’, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pp. 770–778.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Howard, A., Sandler, M., Chu, G., Chen, L.-C., Chen, B., Tan, M., Wang, W., Zhu, Y., Pang, R., Vasudevan, V., Le, Q.V. and Adam, H. (2019) ‘Searching for MobileNetV3’, Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 1314–1324.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Howard, A.G., Zhu, M., Chen, B., Kalenichenko, D., Wang, W., Weyand, T., Andreetto, M. and Adam, H. (2017) ‘MobileNets: efficient convolutional neural networks for mobile vision applications’, arXiv preprint arXiv:1704.04861.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Howard, J. and Ruder, S. (2018) ‘Universal language model fine-tuning for text classification’, Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics, pp. 328–339.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Huang, H.N., Zhang, T., Yang, C.T., Sheen, Y.J. and Chen, H.M. (2022) ‘Image segmentation using transfer learning and Fast R-CNN for diabetic foot wound treatments’, Frontiers in Public Health, 10, pp. 1–15.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'International Working Group on the Diabetic Foot (2023) IWGDF Guidelines on the Prevention and Management of Diabetic Foot Disease. Amsterdam: IWGDF.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Islam, M.M. (2026) Lower Limb and Feet Wound Image Dataset for Medical Analysis, version 3 [dataset]. Mendeley Data. DOI: 10.17632/hsj38fwnvr.3.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Krizhevsky, A., Sutskever, I. and Hinton, G.E. (2012) ‘ImageNet classification with deep convolutional neural networks’, Advances in Neural Information Processing Systems, 25, pp. 1097–1105.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'LeCun, Y., Bengio, Y. and Hinton, G. (2015) ‘Deep learning’, Nature, 521(7553), pp. 436–444.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Lipner, S.R. and Scher, R.K. (2019) ‘Onychomycosis: clinical overview and diagnosis’, Journal of the American Academy of Dermatology, 80(4), pp. 835–851.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Lipsky, B.A., Senneville, É., Abbas, Z.G., Aragón-Sánchez, J., Diggle, M., Embil, J.M., Kono, S., Lavery, L.A., Malone, M., van Asten, S.A., Urbančič-Rovan, V. and Peters, E.J.G. (2020) ‘Guidelines on the diagnosis and treatment of foot infection in persons with diabetes (IWGDF 2019 update)’, Diabetes/Metabolism Research and Reviews, 36(S1), e3280.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Litjens, G., Kooi, T., Bejnordi, B.E., Setio, A.A.A., Ciompi, F., Ghafoorian, M., van der Laak, J.A.W.M., van Ginneken, B. and Sánchez, C.I. (2017) ‘A survey on deep learning in medical image analysis’, Medical Image Analysis, 42, pp. 60–88.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Oltu, B., Karaca, B.K., Erdem, H. and Özgür, A. (2021) ‘A systematic review of transfer learning based approaches for diabetic retinopathy detection’, arXiv preprint.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Pan, S.J. and Yang, Q. (2010) ‘A survey on transfer learning’, IEEE Transactions on Knowledge and Data Engineering, 22(10), pp. 1345–1359.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Rajpurkar, P., Irvin, J., Zhu, K., Yang, B., Mehta, H., Duan, T., Ding, D., Bagul, A., Langlotz, C., Shpanskaya, K., Lungren, M.P. and Ng, A.Y. (2017) ‘CheXNet: radiologist-level pneumonia detection on chest X-rays with deep learning’, arXiv preprint arXiv:1711.05225.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Sait, A.R.W. and Nagaraj, R. (2025) ‘Diabetic foot ulcers detection model using a hybrid convolutional neural networks–vision transformers approach’, Diagnostics, 15(6), pp. 1–24.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Sandler, M., Howard, A., Zhu, M., Zhmoginov, A. and Chen, L.-C. (2018) ‘MobileNetV2: inverted residuals and linear bottlenecks’, Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pp. 4510–4520.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Selvaraju, R.R., Cogswell, M., Das, A., Vedantam, R., Parikh, D. and Batra, D. (2017) ‘Grad-CAM: visual explanations from deep networks via gradient-based localization’, Proceedings of the IEEE International Conference on Computer Vision, pp. 618–626.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Shorten, C. and Khoshgoftaar, T.M. (2019) ‘A survey on image data augmentation for deep learning’, Journal of Big Data, 6(60), pp. 1–48.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Tan, M. and Le, Q.V. (2019) ‘EfficientNet: rethinking model scaling for convolutional neural networks’, Proceedings of the 36th International Conference on Machine Learning, pp. 6105–6114.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Topol, E.J. (2019) ‘High-performance medicine: the convergence of human and artificial intelligence’, Nature Medicine, 25(1), pp. 44–56.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Wang, C., Anisuzzaman, D.M., Williamson, V., Dhar, M.K., Rostami, B., Niezgoda, J., Gopalakrishnan, S. and Yu, Z. (2020) ‘Fully automatic wound segmentation with deep convolutional neural networks’, Scientific Reports, 10, 21897.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Wang, C., Mahbod, A., Ellinger, I., Galdran, A., Gopalakrishnan, S., Niezgoda, J. and Yu, Z. (2022) ‘FUSeg: the foot ulcer segmentation challenge’, arXiv preprint arXiv:2201.00414.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'World Health Organization (2021) Global Strategy on Digital Health 2020–2025. Geneva: World Health Organization.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'World Health Organization and World Bank (2023) Tracking Universal Health Coverage: 2023 Global Monitoring Report. Geneva: World Health Organization and World Bank.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Yap, M.H., Cassidy, B., Pappachan, J.M., O’Shea, C., Gillespie, D. and Reeves, N. (2021) ‘Analysis towards classification of infection and ischaemia of diabetic foot ulcers’, arXiv preprint.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 140, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Zhang, J., Xia, Y., Xie, Y., Fulham, M. and Feng, D.D. (2018) ‘Classification of medical images in the biomedical literature by jointly using deep and handcrafted visual features’, IEEE Journal of Biomedical and Health Informatics, 22(5), pp. 1521–1530.', size: 21, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { before: 320, after: 200, line: 300 },
   shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'TEN ENTRIES STILL NEEDED.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'Eight of these are cited in the text of Chapter 2 but are not in the bibliography you submitted with the proposal, and their sources could not be identified with enough confidence to write an entry. Find each one and add it, or delete the citation from Chapter 2 — an in-text citation with no reference is a marked fault, and a reference to a work that does not exist is a more serious one, so check each against a database before keeping it. Two dataset citations are also needed: both the Mendeley and the figshare pages carry a ready-made citation you can copy.', size: 20, italics: true, font: 'Calibri' }) ] }));
-[
- 'Goyal et al. (2020) — cited in Chapter 2.',
- 'Gupta et al. (2022) — cited in Chapter 2, section 2.5.2.',
- 'Lipner and Scher (2019) — cited in Chapter 2, section 2.5.2.',
- 'Lipsky et al. (2020) — cited in Chapter 2.',
- 'Patel et al. (2017) — cited in Chapter 2.',
- 'Wang et al. (2022) — cited in Chapter 2. Note this is a different Wang from the 2020 entry above.',
- 'World Bank (2023) — cited in Chapter 2, section 2.4.',
- 'Zhang et al. (2018) — cited in Chapter 2.',
- 'Mendeley Data, DOI 10.17632/hsj38fwnvr.3 — the source of the healthy and wound images (Section 3.2). Copy the citation from data.mendeley.com.',
- 'figshare, article 5398573, Model Onychomycosis Training Datasets (JPG thumbnails) and Validation Datasets (JPG images) — the source of the nail images (Section 3.2). Copy the citation from figshare.com.',
-].forEach(r => children.push(new Paragraph({ spacing: { after: 120, line: 300 },
+  children: [ new TextRun({ text: 'FOUR CITATIONS NEED A DECISION.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
+    new TextRun({ text: 'Every other citation in the dissertation now has an entry above. These four could not be matched to a source with confidence, so nothing has been guessed. A citation with no reference loses marks; a reference to a work that does not exist loses more, so settle each one before you submit and then delete this box.', size: 20, italics: true, font: 'Calibri' }) ] }));
+children.push(new Paragraph({ spacing: { after: 120, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: r, size: 21, italics: true, font: 'Calibri' })] })));
+  children: [new TextRun({ text: 'Patel et al. (2017), cited in section 2.3 — no source matching this citation could be found. Replace it with a work you have read, or delete the citation.', size: 21, italics: true, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 120, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Zhang et al. (2018), cited in section 2.3 — the entry in the list is the closest match found. Confirm it is the work you meant.', size: 21, italics: true, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 120, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Wang et al. (2022), cited in section 2.5.6 — the entry in the list is the closest match found, but it is about segmentation while the sentence cites it for classification accuracy. Confirm or re-point it.', size: 21, italics: true, font: 'Calibri' })] }));
+children.push(new Paragraph({ spacing: { after: 120, line: 300 },
+  indent: { left: 440, hanging: 440 },
+  children: [new TextRun({ text: 'Gupta et al. (2022) is cited twice, in sections 2.5.2 and 2.5.6. The entry in the list fits the first, on laboratory diagnosis; it does not support the second, on transfer learning architectures. Re-point the second citation, and complete the author list from the journal page.', size: 21, italics: true, font: 'Calibri' })] }));
 
 // ---------------------------------------------------------- appendices ----
 children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, spacing: { after: 240 },
