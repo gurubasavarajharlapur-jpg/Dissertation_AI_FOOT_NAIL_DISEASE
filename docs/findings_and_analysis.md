@@ -26,6 +26,11 @@ decision. Written to be quoted from directly when drafting the dissertation.
   classifier misreads** — none of which would reach it otherwise — while
   referring **0 of 556 healthy** and **0 of 117 fungal** cases for urgent or
   prompt care. The result holds at every escalation threshold tried.
+- **A measured limit on the safety mechanism** (§3): on 578 images of a
+  condition the model has no class for, confidence was indistinguishable from
+  confidence on known data (median 0.9997 vs 0.9998) and only 2.6% were
+  declined. Abstention protects against uncertainty, not against being outside
+  the label space.
 - A **working prototype** with screening and batch-evaluation tabs, Grad-CAM
   explanation and clinical guidance text (Phase 6).
 
@@ -373,6 +378,83 @@ most where it is most needed** — on the compact model intended for deployment,
 where it converts 98.3% accuracy into 99.6% on answered cases for the cost of
 referring 3 in 100. That is a deployable safety mechanism, and it is one of the
 four grounds for the recommendation in §7.
+
+---
+
+### Selective prediction on input the model cannot represent
+
+The abstention threshold was fitted on validation data drawn from the same
+clinical sources as training, so it says nothing about behaviour on input the
+model has no class for. That gap was measured directly.
+
+The Figshare download contains **578 images of nail dystrophy**, a real nail
+condition excluded during preprocessing because it is not one of the four
+classes fixed by the proposal. The models have never seen them, in training,
+validation or test — a clean out-of-distribution probe on real medical
+photographs. `src/ood_test.py` scores them (MobileNetV2, calibrated).
+
+**The abstention mechanism does not detect them.**
+
+| | Unknown condition (578) | Test set (known, 1,248) |
+|---|---|---|
+| Mean confidence | 0.9807 | 0.9824 |
+| Median confidence | **0.9997** | **0.9998** |
+| Fell below the 0.787 threshold | **2.6%** [1.6%, 4.2%] | 3.0% |
+
+**Confidence on a condition the model cannot represent is statistically
+indistinguishable from confidence on the data it was trained for** — a mean gap
+of 0.0017 and a median gap of 0.0001. Slightly *fewer* unknown images were
+declined than known ones. This is the finding: confidence carries essentially
+no information about whether an input is something the model can represent, so
+no threshold placed on it can separate the two. Selective prediction protects
+against *uncertain* errors; it does not protect against being out of the label
+space, and this quantifies that.
+
+It corroborates the external-validation observation (§5.9) where the model was
+more confident when wrong (98.6%) than when right (89.2%).
+
+**The practical outcome is nonetheless mostly benign, for a reason worth
+stating separately.**
+
+| Label assigned | All 578 | Answered only (563) |
+|---|---|---|
+| Nail Fungal Infection | 565 — 97.8% | 554 — 98.4% |
+| **Healthy Foot/Nail** | **13 — 2.2%** | **9 — 1.6%** |
+| Foot Wound/Injury | 0 | 0 |
+| Foot Ulcer | 0 | 0 |
+
+Two things follow. **Every one of the 578 images was assigned to a nail class
+and none to a foot class.** The model reliably identifies what part of the body
+it is looking at; what it cannot do is place a condition outside its
+vocabulary. And the label it does assign is the nearest available one —
+onychomycosis, which shares the discoloration and thickening that characterise
+dystrophy.
+
+Because nail fungal infection maps to the *routine* triage band, the action
+given is a routine consultation:
+
+| Action given | Count |
+|---|---|
+| Routine appointment | 569 — 98.4% [97.1%, 99.2%] |
+| **Self-care, no action advised** | **9 — 1.6%** |
+| Urgent / Prompt | 0 |
+
+**98.4% are routed to a clinician.** They receive the wrong diagnosis and the
+right action — and the clinician they are sent to would make the correct one.
+Nine people out of 578 are told nothing is wrong when they have a real nail
+condition.
+
+Abstention still earned something, narrowly. Of the 13 images labelled healthy,
+4 fell below the threshold and were raised to a routine referral, so **the
+threshold converted 4 of 13 "nothing is wrong" verdicts into referrals**. Real,
+but small, and it does not change the conclusion above.
+
+**How to state this in the write-up.** The system cannot recognise conditions
+outside its four classes and its confidence gives no warning that it is out of
+its depth. What limits the harm is not the safety mechanism but an accident of
+the class structure: the nearest label happens to carry a referral. That is a
+property of this particular class set, not a designed safeguard, and it would
+not hold for a condition whose nearest neighbour were *healthy*.
 
 ---
 
