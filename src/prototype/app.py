@@ -351,12 +351,13 @@ def render_report(probs: np.ndarray, abstain: bool, confidence: float,
     st.error(f"**{config.DISCLAIMER}**")
 
 
-def _score(model, model_name: str, items: list[tuple[np.ndarray, int]],
+def _score(model, model_name: str, items: list[tuple[np.ndarray, int, str]],
            temperature: float, threshold: float) -> dict:
     from sklearn.metrics import (accuracy_score, confusion_matrix,
                                  precision_recall_fscore_support)
-    arrays = np.stack([a for a, _ in items])
-    y_true = np.array([label for _, label in items])
+    arrays = np.stack([a for a, _, _ in items])
+    y_true = np.array([label for _, label, _ in items])
+    names = [name for _, _, name in items]
 
     raw = model.predict(arrays, batch_size=config.BATCH_SIZE, verbose=0)
     if abs(temperature - 1.0) > 1e-6:
@@ -386,6 +387,19 @@ def _score(model, model_name: str, items: list[tuple[np.ndarray, int]],
         "coverage": float(accepted.mean()),
         "accuracy_accepted": float((y_pred[accepted] == y_true[accepted]).mean())
         if accepted.any() else float("nan"),
+        # One row per image. An aggregate figure cannot answer "which of these
+        # failed, and was it the same foot under a different background" — a
+        # paired set is only readable image by image.
+        "per_image": pd.DataFrame({
+            "file": [Path(n).name for n in names],
+            "folder": [Path(n).parent.name for n in names],
+            "true": [config.CLASS_NAMES[i] for i in y_true],
+            "predicted": [config.CLASS_NAMES[i] for i in y_pred],
+            "correct": (y_pred == y_true).astype(int),
+            "confidence": probs.max(axis=1).round(4),
+            "answered": accepted.astype(int),
+            **{f"p_{c}": probs[:, i].round(4) for i, c in enumerate(config.CLASS_NAMES)},
+        }),
     }
 
 
@@ -409,7 +423,7 @@ for _name, _index in config.CLASS_TO_INDEX.items():
     FOLDER_ALIASES[_folder_key(config.CLASS_DISPLAY_NAMES[_name])] = _index
 
 
-def _load_zip(data: bytes) -> tuple[list[tuple[np.ndarray, int]], list[str]]:
+def _load_zip(data: bytes) -> tuple[list[tuple[np.ndarray, int, str]], list[str]]:
     """Read images from a zip organised as <class_name>/<image>."""
     items, notes = [], []
     unknown: set[str] = set()
@@ -434,7 +448,10 @@ def _load_zip(data: bytes) -> tuple[list[tuple[np.ndarray, int]], list[str]]:
                     unreadable.get(path.suffix.lower() or "(no extension)", 0) + 1)
                 continue
             with zf.open(name) as handle:
-                items.append((prepare(Image.open(io.BytesIO(handle.read()))), label))
+                # The filename is carried through so results can be reported per
+                # image, not only in aggregate. A paired design — the same feet
+                # photographed under two conditions — is unreadable without it.
+                items.append((prepare(Image.open(io.BytesIO(handle.read()))), label, name))
     if unknown:
         notes.append(
             f"{len(unknown)} folder(s) skipped — names must match a project class "
@@ -450,11 +467,11 @@ def _load_zip(data: bytes) -> tuple[list[tuple[np.ndarray, int]], list[str]]:
     return items, notes
 
 
-def _load_test_split() -> list[tuple[np.ndarray, int]]:
+def _load_test_split() -> list[tuple[np.ndarray, int, str]]:
     frame = pd.read_csv(config.PROCESSED_DIR / "test.csv")
     return [
         (np.asarray(Image.open(config.PROJECT_ROOT / row.path).convert("RGB"), dtype=np.float32),
-         config.CLASS_TO_INDEX[row.label])
+         config.CLASS_TO_INDEX[row.label], row.path)
         for row in frame.itertuples()
     ]
 
@@ -538,6 +555,32 @@ def batch_tab(model_name: str) -> None:
     names = [config.CLASS_DISPLAY_NAMES[c] for c in config.CLASS_NAMES]
     st.dataframe(pd.DataFrame(result["confusion"], index=names, columns=names),
                  use_container_width=True)
+
+    # Per-image results. Written to disk as well as shown, because a download
+    # started by the page does not always survive Colab's port proxy, and
+    # because these rows are what a paired analysis needs afterwards.
+    st.markdown("**Every image**")
+    st.caption(
+        "Sort by `correct` to see the failures. If the set is paired — the same "
+        "feet photographed under two conditions — the filenames are what link "
+        "each pair, so name them accordingly."
+    )
+    st.dataframe(result["per_image"], hide_index=True, use_container_width=True)
+
+    out_path = config.METRICS_DIR / f"batch_per_image_{model_name}.csv"
+    try:
+        config.METRICS_DIR.mkdir(parents=True, exist_ok=True)
+        result["per_image"].to_csv(out_path, index=False)
+        st.caption(f"Saved to `{out_path.relative_to(config.PROJECT_ROOT)}` — "
+                   f"read it from a notebook cell if the download below is blocked.")
+    except OSError as error:
+        st.caption(f"Could not write the CSV ({error}); use the download button instead.")
+    st.download_button(
+        "Download per-image results (CSV)",
+        result["per_image"].to_csv(index=False).encode(),
+        file_name=f"batch_per_image_{model_name}.csv",
+        mime="text/csv",
+    )
 
     stored = config.metrics_path(model_name)
     if stored.exists() and source != "Project test split":
