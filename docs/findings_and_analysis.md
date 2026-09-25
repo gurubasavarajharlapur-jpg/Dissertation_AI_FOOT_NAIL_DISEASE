@@ -841,7 +841,12 @@ photographs were collected and scored through the prototype's batch tab.
 **What was collected.** Five individuals — the author and four friends — with
 two photographs of each: one against a plain background, one against a
 patterned background. That is **5 matched pairs, 10 images**, named
-`s<subject>_<background>.jpeg`. The pairing is deliberate: it makes the
+`s<subject>_<background>.jpeg`. Five different handsets were used across the five
+subjects — a Google Pixel, a Nothing Phone, a Samsung, an iPhone 14 and an
+iPhone 16 Pro — under ordinary indoor tube lighting. So the set spans five
+cameras rather than one, which widens what it represents and also means camera
+is confounded with subject; the paired background comparison is unaffected,
+provided both photographs of a subject came from the same handset. The pairing is deliberate: it makes the
 background comparison a *paired* test rather than two independent samples, on a
 sample size where that distinction is the difference between a usable
 measurement and none. Every subject had healthy feet with no visible wound,
@@ -853,8 +858,8 @@ exact configuration §3 recommends for deployment, not a more permissive one.
 |---|---|---|---|---|---|
 | s1_plain | healthy | healthy | ✓ | 0.9988 | answered |
 | s1_patterned | healthy | **foot_wound** | ✗ | **0.9219** | answered |
-| s2_plain | healthy | **foot_wound** | ✗ | 0.6376 | abstained |
-| s2_patterned | healthy | healthy | ✓ | 0.9058 | answered |
+| s2_plain | healthy | healthy | ✓ | 0.9058 | answered |
+| s2_patterned | healthy | **foot_wound** | ✗ | 0.6376 | abstained |
 | s3_plain | healthy | healthy | ✓ | 0.7917 | answered |
 | s3_patterned | healthy | **foot_wound** | ✗ | 0.7824 | abstained |
 | s4_plain | healthy | healthy | ✓ | 0.8595 | answered |
@@ -868,8 +873,8 @@ percentage points.**
 | | Correct | Accuracy | 95% Wilson CI |
 |---|---|---|---|
 | **All photographs** | 6 / 10 | **0.600** | [0.313, 0.832] |
-| Plain background | 4 / 5 | 0.800 | [0.376, 0.964] |
-| Patterned background | 2 / 5 | 0.400 | [0.118, 0.769] |
+| Plain background | **5 / 5** | 1.000 | [0.566, 1.000] |
+| Patterned background | **1 / 5** | 0.200 | [0.036, 0.625] |
 
 This is the single most important number in the study for anyone deciding
 whether to deploy the system, and it is the number the internal validation in
@@ -904,17 +909,26 @@ rate of 4/10**. A reviewer who sees "macro F1 0.19" and no explanation will read
 it as catastrophic failure; the number is an artefact of averaging over classes
 that are absent.
 
-**The background effect is visible but not established.** Plain backgrounds
-scored 4/5 and patterned 2/5. Because the design is paired, the right test is
-McNemar's on the 5 subjects rather than a comparison of the two proportions:
-**4 of 5 pairs are discordant, 3 of them in favour of the plain background,
-exact p = 0.6250.** Not significant, and it could not have been — with five
-pairs the smallest attainable two-sided p-value is 0.0625, so this design is
-incapable of reaching significance whatever the result. State it as an
-observation with a mechanism, not a finding: a patterned background gives the
-network edge and texture structure in the region surrounding the foot, which is
-exactly the kind of incidental detail §5.4 showed the model can pick up. Testing
-it properly needs roughly 20–30 pairs.
+**The background effect is the clearest signal in the set, and it is one pair
+short of the strongest evidence this design could give.** Every plain-background
+photograph was classified correctly (5/5); four of the five patterned ones were
+wrong. Because the design is paired, the right test is McNemar's on the 5
+subjects rather than a comparison of the two proportions: **4 of the 5 pairs are
+discordant and all 4 favour the plain background, exact p = 0.1250.**
+
+Not significant — and it could not have been. With five pairs the smallest
+attainable two-sided p-value is 0.0625, which needs all five pairs discordant in
+the same direction; four out of four gives 0.1250. So the result is as
+one-directional as the data allows and the test still cannot clear 0.05. Report
+it as an observation with a mechanism and a sample-size explanation, never as a
+null result: a patterned background gives the network edge and texture structure
+in the region surrounding the foot, which is exactly the kind of incidental
+detail §5.4 showed the model can pick up. Roughly 20–30 pairs would settle it.
+
+**The abstention threshold saw the background too.** Of the five patterned
+photographs it answered one; of the five plain ones it answered four. Coverage
+by background is 1/5 against 4/5, in the same direction as accuracy, which is
+what a threshold responding to acquisition conditions should do.
 
 **Abstention worked here, and this is the result that should change how the
 mechanism is described.**
@@ -985,7 +999,16 @@ outside its vocabulary, and §3 quantifies how completely it fails at that.
 `results/metrics/batch_per_image_mobilenetv2.csv`, written by the prototype's
 batch tab, which carries the full calibrated probability vector per image
 alongside the prediction, so every figure in this section can be recomputed
-without re-running inference. The photographs themselves are of identifiable
+without re-running inference.
+
+One correction is recorded here because it changed a result rather than a label.
+Subject 2's two photographs were uploaded with their background names
+transposed, and the figures above are the corrected ones. The overall accuracy
+is unaffected — 6 of 10 either way, since it does not depend on the labels — but
+the background split moves from 4/5 against 2/5 to 5/5 against 1/5, and the
+paired test from p = 0.6250 to p = 0.1250. Anything quoting the earlier split is
+out of date. The correction was possible only because the batch tab records
+filenames, which is the argument for it doing so. The photographs themselves are of identifiable
 individuals and are not committed to the repository.
 
 ---
