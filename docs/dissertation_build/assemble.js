@@ -35,10 +35,6 @@ children.push(
 // -------------------------------------------------------------- abstract --
 children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { after: 240 },
   children: [new TextRun({ text: 'Abstract', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { before: 100, after: 200, line: 300 },
-  shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'READ THIS OVER BEFORE YOU SUBMIT.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'Every figure below comes from your results. Change any wording that does not sound like you, and it runs to about 390 words, so trim the first and fifth paragraphs if your programme sets a 300-word limit. Delete this box afterwards.', size: 20, italics: true, font: 'Calibri' }) ] }));
 children.push(P('Foot and nail problems are easy to ignore, and in rural areas they are also hard to get looked at. A condition that would have been simple to treat early is often first seen once it has become serious. Foot ulcers are the worst case, because they come before most amputations of the lower limb that are not caused by an accident.'));
 children.push(P('Almost everyone now carries a phone with a camera, so this project asks a simple question: can a photograph taken on an ordinary phone tell someone that their foot needs to be seen by a professional?'));
 children.push(P('To answer it I trained two deep learning models to sort photographs into four groups, a healthy foot or nail, a fungal nail infection, a foot wound and a foot ulcer. The 8,374 images came from three public datasets. Both models were trained the same way on the same data so that the comparison between them would be fair. MobileNetV2 is small enough to run on a phone; ResNet50 is about ten times larger and was used as a yardstick.'));
@@ -50,10 +46,6 @@ children.push(new Paragraph({ children: [new PageBreak()] }));
 // ------------------------------------------------ acknowledgements + decl --
 children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { after: 240 },
   children: [new TextRun({ text: 'Acknowledgements', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { before: 100, after: 200, line: 300 },
-  shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'MAKE THIS YOUR OWN.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'A draft in your voice. Add or remove whoever you like, then delete this box.', size: 20, italics: true, font: 'Calibri' }) ] }));
 children.push(P('I would like to thank my supervisor, Dr Krishnadas Nanath, for his guidance throughout this project. His feedback shaped the direction of the work at several points, and his questions were often the reason I looked more carefully at a result instead of accepting it.'));
 children.push(P('I am grateful to the four friends who agreed to have their feet photographed for the external validation in Chapter 5. It is an odd thing to be asked, and the ten photographs they made possible turned out to be one of the more useful parts of this dissertation.'));
 children.push(P('I would also like to acknowledge the researchers who made their image datasets publicly available. Work of this kind is only possible because other people chose to share their data, and this project would not exist without them.'));
@@ -117,10 +109,6 @@ children.push(...ch3, ...ch4, ...ch5, ...ch6, ...ch7);
 // ---------------------------------------------------------- references ----
 children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, spacing: { after: 240 },
   children: [new TextRun({ text: 'References', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { before: 100, after: 200, line: 300 },
-  shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'ONE LIST, HARVARD STYLE.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'A single alphabetical sequence for the whole dissertation, covering the bibliography from your proposal, everything cited in Chapter 2, everything cited in Chapters 3 to 7, and the two image datasets. It follows the Harvard style Middlesex uses, as set out in Cite Them Right. Delete this box before submitting.', size: 20, italics: true, font: 'Calibri' }) ] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Almufadi, N.F., Alhasson, H.F. and Alharbi, S.S. (2025) ‘E-DFu-Net: an efficient deep convolutional neural network model for diabetic foot ulcer classification’, Biomolecules and Biomedicine, 25(2), pp. 445–460.', size: 21, font: 'Calibri' })] }));
