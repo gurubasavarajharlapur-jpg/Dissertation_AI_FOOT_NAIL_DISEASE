@@ -1,0 +1,507 @@
+"""Central configuration for the whole project.
+
+Every number that affects a reported result lives here rather than being
+hard-coded in a script. Two reasons, both of which matter for the viva:
+
+1. Reproducibility. One file fully describes an experiment, so a run can be
+   repeated exactly and the settings can be quoted in the methodology chapter.
+2. Fair comparison. MobileNetV2 and ResNet50 must be trained under identical
+   conditions, otherwise any difference in their scores could be down to the
+   training setup rather than the architecture. Sharing this config is what
+   makes the comparison a controlled experiment.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Paths. Everything is derived from the project root so the code runs the same
+# way from the repo root, from src/, or from a notebook in notebooks/.
+# ---------------------------------------------------------------------------
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+DATA_DIR = PROJECT_ROOT / "data"
+RAW_DIR = DATA_DIR / "raw"
+PROCESSED_DIR = DATA_DIR / "processed"
+
+MODELS_DIR = PROJECT_ROOT / "models"
+RESULTS_DIR = PROJECT_ROOT / "results"
+FIGURES_DIR = RESULTS_DIR / "figures"
+METRICS_DIR = RESULTS_DIR / "metrics"
+NOTEBOOKS_DIR = PROJECT_ROOT / "notebooks"
+
+
+def ensure_dirs() -> None:
+    """Create the output directories if they are missing."""
+    for directory in (RAW_DIR, PROCESSED_DIR, MODELS_DIR, FIGURES_DIR, METRICS_DIR):
+        directory.mkdir(parents=True, exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Reproducibility
+# ---------------------------------------------------------------------------
+# Fixed seed for NumPy, Python's `random`, and TensorFlow. Used for the
+# train/val/test split, weight initialisation of the classifier head, shuffling
+# and augmentation. Changing it changes the results, so it is reported in the
+# dissertation alongside the numbers.
+RANDOM_SEED = 42
+
+# ---------------------------------------------------------------------------
+# Classification task
+# ---------------------------------------------------------------------------
+# The four target categories. ORDER IS SIGNIFICANT: the index of each class in
+# this list is the integer label the network learns, and the row/column order of
+# the confusion matrix. Never reorder this list after training a model, or the
+# saved weights will be silently mislabelled.
+CLASS_NAMES: list[str] = [
+    "healthy",            # Healthy foot / nail
+    "nail_fungal",        # Nail fungal infection (onychomycosis)
+    "foot_wound",         # Foot wound / injury
+    "foot_ulcer",         # Foot ulcer (e.g. diabetic foot ulcer)
+]
+
+# Human-readable labels for plots, reports and the prototype interface.
+CLASS_DISPLAY_NAMES: dict[str, str] = {
+    "healthy": "Healthy Foot/Nail",
+    "nail_fungal": "Nail Fungal Infection",
+    "foot_wound": "Foot Wound/Injury",
+    "foot_ulcer": "Foot Ulcer",
+}
+
+NUM_CLASSES = len(CLASS_NAMES)
+CLASS_TO_INDEX: dict[str, int] = {name: i for i, name in enumerate(CLASS_NAMES)}
+INDEX_TO_CLASS: dict[int, str] = {i: name for name, i in CLASS_TO_INDEX.items()}
+
+# ---------------------------------------------------------------------------
+# Source folder -> project class mapping
+# ---------------------------------------------------------------------------
+# Decided by hand after reading the src/inspect_data.py report, never inferred
+# from folder names. Keys are path fragments matched against each image's path
+# under data/raw/; the first match wins, so more specific patterns come first.
+# A value of None means "recognised but deliberately excluded", which keeps the
+# exclusion explicit and auditable rather than silent.
+FOLDER_TO_CLASS: dict[str, str | None] = {
+    # --- Mendeley hsj38fwnvr v3 (whole-foot photographs) -------------------
+    "mendeley_foot/Normal": "healthy",
+    "mendeley_foot/wound_main": "foot_wound",
+
+    # --- FUSeg / AZH chronic wound (Wang et al., 2020) --------------------
+    # Every image in this dataset is a foot ulcer; the split sub-folders are
+    # the publisher's own segmentation-challenge splits, not ours.
+    "ulcer_fuseg": "foot_ulcer",
+
+    # --- Figshare 5398573, per-image folders ------------------------------
+    "figshare_nail/datasets (B1, B2, C, D, E)": None,  # overridden below
+    # --- Figshare 5398573, tiles recovered from the montage sheets --------
+    "figshare_nail_tiles/healthy": "healthy",
+}
+
+# Checked before FOLDER_TO_CLASS so the Figshare per-image sub-folders resolve
+# correctly regardless of which parent pattern would otherwise match.
+LEAF_FOLDER_TO_CLASS: dict[str, str | None] = {
+    "onychomycosis": "nail_fungal",
+    # Nail dystrophy is a real condition but not one of the four classes fixed
+    # by the proposal (Methods; 5.4), so it is excluded rather than reassigned.
+    "naildystrophy": None,
+}
+
+# Sources whose images are letterboxed onto a black background. The FUSeg and
+# Medetec ulcer images were cropped to the wound and zero-padded to square by
+# their publishers, leaving 25-32% of every image pure black — a marking no
+# other class carries. Left in place, a model would learn "black border =>
+# ulcer" and score near-perfectly without learning anything about ulcers.
+# Images from these sources are cropped back to their non-black content.
+CROP_BLACK_BORDERS = ("ulcer_fuseg",)
+
+# Per-source ceilings on how many images one raw folder may contribute.
+#
+# Tiling the montage sheets yields ~18,000 healthy nail images against 780
+# onychomycosis images. Uncapped, "healthy" would be 81% of the dataset (a
+# model predicting it every time scores 81% accuracy) and 87% of that class
+# would be nails, drowning the healthy-foot signal.
+#
+# The count also overstates what is actually there: the tiles come from roughly
+# 20 sheets, so they represent about 20 photographic sessions rather than 18,000
+# independent observations. Capping near the 780 onychomycosis images keeps the
+# nail comparison balanced and reflects the real diversity of the source.
+#
+# Sampling is spread evenly across sheets, never taken in filename order, so a
+# cap does not silently reduce the data to one or two sessions.
+MAX_IMAGES_PER_SOURCE: dict[str, int] = {
+    "figshare_nail_tiles": 1000,
+}
+# A pixel at or below this intensity counts as padding rather than dark tissue.
+BLACK_THRESHOLD = 12
+
+# ---------------------------------------------------------------------------
+# Image settings
+# ---------------------------------------------------------------------------
+# 224x224 is the resolution MobileNetV2 and ResNet50 were pretrained on at
+# ImageNet. Feeding them the same size means the pretrained filters see the
+# scale of detail they were trained to recognise, which is the whole point of
+# transfer learning.
+IMAGE_SIZE: tuple[int, int] = (224, 224)
+IMAGE_CHANNELS = 3
+INPUT_SHAPE: tuple[int, int, int] = (*IMAGE_SIZE, IMAGE_CHANNELS)
+
+# File extensions treated as images when scanning data/raw/.
+VALID_EXTENSIONS: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp")
+
+# Cleaning thresholds applied during preprocessing (see src/preprocessing.py).
+# Images smaller than this in either dimension are too low-resolution to carry
+# diagnostic detail once resized, and are dropped rather than upscaled.
+MIN_IMAGE_DIMENSION = 64
+# Files below this size are almost always truncated downloads or placeholders.
+MIN_FILE_SIZE_BYTES = 1024
+
+# ---------------------------------------------------------------------------
+# Data splitting
+# ---------------------------------------------------------------------------
+# Stratified split: each class keeps these proportions, so a rare class is not
+# accidentally absent from the test set. Must sum to 1.0.
+TRAIN_SPLIT = 0.70
+VAL_SPLIT = 0.15
+TEST_SPLIT = 0.15
+
+# ---------------------------------------------------------------------------
+# Training hyper-parameters (shared by both architectures)
+# ---------------------------------------------------------------------------
+BATCH_SIZE = 32
+
+# Transfer learning runs in two stages:
+#   Stage 1 (head training)  - backbone frozen, train only the new classifier.
+#                              A random head would otherwise send large, noisy
+#                              gradients through the pretrained filters and
+#                              destroy the features being transferred.
+#   Stage 2 (fine-tuning)    - unfreeze the top of the backbone at a much lower
+#                              learning rate so the general ImageNet features
+#                              adapt to skin/nail texture without being erased.
+EPOCHS_HEAD = 15
+EPOCHS_FINETUNE = 25
+
+LEARNING_RATE_HEAD = 1e-3
+LEARNING_RATE_FINETUNE = 1e-5
+
+# How many layers at the top of the backbone to unfreeze in stage 2. Set per
+# architecture because the two networks have very different depths.
+FINETUNE_LAYERS = {
+    "mobilenetv2": 30,   # MobileNetV2 has 154 layers
+    "resnet50": 30,      # ResNet50 has 175 layers
+}
+
+DROPOUT_RATE = 0.3
+L2_REGULARIZATION = 1e-4
+
+# Stop when validation loss has not improved for this many epochs, and restore
+# the best weights. Guards against overfitting on a small medical dataset.
+EARLY_STOPPING_PATIENCE = 8
+REDUCE_LR_PATIENCE = 4
+REDUCE_LR_FACTOR = 0.5
+
+# Metric used to select the best checkpoint. Validation accuracy is a poor
+# choice on imbalanced data because a model that ignores the rarest condition
+# can still score highly; macro-averaged behaviour is preferred, and val_loss is
+# the closest proxy available as a stock Keras checkpoint monitor.
+MONITOR_METRIC = "val_loss"
+MONITOR_MODE = "min"
+
+# Counteract class imbalance by weighting the loss inversely to class frequency,
+# so the model is penalised more for missing a rare condition.
+USE_CLASS_WEIGHTS = True
+
+# ---------------------------------------------------------------------------
+# Data augmentation
+# ---------------------------------------------------------------------------
+# Applied to the training split only - never to validation or test, which must
+# stay a fixed, honest measurement.
+#
+# Deliberately conservative on colour: nail and skin conditions are diagnosed
+# partly by hue (yellowing in onychomycosis, the red/black of an ulcer bed), so
+# aggressive colour shifts would destroy the signal the model should learn.
+#
+# These values feed Keras 3 preprocessing layers (RandomFlip, RandomRotation,
+# RandomTranslation, RandomZoom, RandomBrightness, RandomContrast), which run on
+# the GPU as part of the tf.data pipeline. Keras 3 removed the older
+# `ImageDataGenerator`, so any tutorial using that class targets Keras 2.
+AUGMENTATION = {
+    # Fraction of 2*pi. 0.055 ~= 20 degrees; photos are taken at odd angles.
+    "rotation_factor": 0.055,
+    # Fraction of image height/width the subject may be shifted by.
+    "translation_height": 0.15,
+    "translation_width": 0.15,
+    # +/- fraction of the original size; distance from the foot varies.
+    "zoom_factor": 0.15,
+    # Left foot vs right foot are mirror images, so this is a real symmetry.
+    # "horizontal" only - an upside-down clinical photo is not realistic.
+    "flip_mode": "horizontal",
+    # Lighting differs between clinics; kept small to preserve diagnostic hue.
+    "brightness_factor": 0.15,
+    "contrast_factor": 0.15,
+    # Healthy nail images come from ~102px montage tiles and are upscaled to
+    # 224, while the onychomycosis images are downscaled from several hundred
+    # pixels. Sharpness therefore correlates with class, and a model can exploit
+    # that instead of learning pathology. Randomised blur removes it as a
+    # reliable cue. Set to 0.0 to disable.
+    "blur_factor": 0.25,
+}
+
+# ---------------------------------------------------------------------------
+# Models to train and compare
+# ---------------------------------------------------------------------------
+# MobileNetV2 is the primary model: ~3.5M parameters and low inference cost, so
+# it can plausibly run on a mid-range phone at a rural health post, which is the
+# deployment story of this dissertation. ResNet50 (~25M parameters) is the
+# comparison model - a heavier, more accurate architecture that establishes what
+# accuracy is being traded away for that portability.
+PRIMARY_MODEL = "mobilenetv2"
+COMPARISON_MODEL = "resnet50"
+MODEL_NAMES: list[str] = [PRIMARY_MODEL, COMPARISON_MODEL]
+
+
+# ---------------------------------------------------------------------------
+# Confidence calibration and selective prediction
+# ---------------------------------------------------------------------------
+# Modern deep networks are systematically overconfident: a softmax output of
+# 0.9 does not mean the model is right 90% of the time (Guo et al., "On
+# Calibration of Modern Neural Networks", ICML 2017). That matters here more
+# than in most applications — the whole premise is a health worker with no
+# specialist to consult, for whom a confidently wrong answer is worse than an
+# admission of uncertainty.
+#
+# Temperature scaling corrects this with a single parameter, fitted on the
+# VALIDATION split. Fitting it on test would make the reported calibration a
+# property of the fitting, not a measurement.
+CALIBRATION_BINS = 15
+
+# Selective prediction: below a confidence threshold the prototype abstains and
+# recommends consulting a clinician instead of naming a condition. The threshold
+# is chosen on validation as the lowest one reaching the target accuracy among
+# accepted cases, provided at least MIN_COVERAGE of cases are still answered —
+# a tool that abstains on everything is safe and useless.
+SELECTIVE_TARGET_ACCURACY = 0.99
+SELECTIVE_MIN_COVERAGE = 0.70
+
+# ---------------------------------------------------------------------------
+# Clinical guidance shown by the prototype
+# ---------------------------------------------------------------------------
+# Fixed text attached to each CLASS, not produced by the model. The network was
+# trained on class labels alone: it has never seen severity, infection status,
+# depth or patient history, so it cannot judge urgency. Presenting a
+# model-derived urgency would be inventing a capability the data does not
+# support. These strings are clinical guidance keyed to the predicted class and
+# should be reviewed against a cited source (IWGDF guidelines on the diabetic
+# foot; NICE NG19 for UK practice) before the prototype is shown to anyone.
+CLINICAL_GUIDANCE: dict[str, str] = {
+    "healthy": (
+        "No concerning features detected. Continue routine foot care and "
+        "hygiene. Seek advice if the appearance changes."
+    ),
+    "nail_fungal": (
+        "Non-urgent. Arrange a routine consultation. Fungal nail infection is "
+        "treatable but usually requires several months of therapy, so earlier "
+        "treatment is easier."
+    ),
+    "foot_wound": (
+        "Seek medical attention within a few days. Sooner if you have diabetes, "
+        "or if there is spreading redness, swelling, warmth or discharge."
+    ),
+    "foot_ulcer": (
+        "Seek medical attention promptly. Foot ulcers can deteriorate quickly, "
+        "particularly in people with diabetes, and benefit from early "
+        "professional assessment."
+    ),
+}
+
+# Shown whenever the model abstains, and alongside every prediction.
+UNCERTAIN_GUIDANCE = (
+    "The model could not classify this image with sufficient confidence. "
+    "This does not mean nothing is wrong. Consult a healthcare professional."
+)
+
+# ---------------------------------------------------------------------------
+# Safety-first triage
+# ---------------------------------------------------------------------------
+# The classifier reports appearance. Triage turns that into an action, and the
+# two are not symmetric: a false referral costs someone a clinic visit, a missed
+# ulcer can cost a limb or a life. Diabetic foot ulceration precedes ~80% of
+# non-traumatic lower-limb amputations, and five-year mortality after a first
+# diabetic foot ulcer is comparable to several common cancers (Armstrong et al.,
+# NEJM 2017). So every rule below is deliberately biased toward referral.
+#
+# These bands are a DESIGN DECISION, not a model output. The network never saw
+# severity, infection, depth, perfusion or patient history, so it cannot judge
+# urgency — the band is attached to the predicted class, exactly as
+# CLINICAL_GUIDANCE is. Review against IWGDF guidance and NICE NG19 before
+# showing this to any clinician.
+TRIAGE_BANDS: dict[str, dict[str, str]] = {
+    "urgent": {
+        "label": "Urgent",
+        "timeframe": "Seek care within 24 hours",
+        "colour": "red",
+    },
+    "prompt": {
+        "label": "Prompt",
+        "timeframe": "Seek care within a few days",
+        "colour": "orange",
+    },
+    "routine": {
+        "label": "Routine",
+        "timeframe": "Arrange a routine appointment",
+        "colour": "blue",
+    },
+    "self_care": {
+        "label": "Self-care",
+        "timeframe": "No appointment needed on this result alone",
+        "colour": "green",
+    },
+}
+
+# The band each class maps to when the model is confident.
+CLASS_TRIAGE: dict[str, str] = {
+    "healthy": "self_care",
+    "nail_fungal": "routine",
+    "foot_wound": "prompt",
+    "foot_ulcer": "urgent",
+}
+
+# Escalation thresholds — the safety net, and the reason this is not just
+# argmax with a label on it.
+#
+# A prediction of "healthy 0.55, foot_ulcer 0.40" has healthy as the top class,
+# and reporting it as healthy would be the single most dangerous thing this
+# tool could do. So a serious condition holding meaningful probability escalates
+# the band even when it is not the top class. The thresholds are low on purpose:
+# the models are confidently calibrated (mean confidence ~0.98), so probability
+# this large on a non-top class is rare and genuinely worth acting on.
+# Set to 0.10 after the validation sweep (src/sweep_thresholds.py); was 0.20.
+#
+# At 0.20 escalation reached 3 of the 11 misclassified validation ulcers. At
+# 0.10 it reaches 6, and sends no benign case for urgent care at all — 0 of 685.
+# Doubling the benefit for no measured cost is not a close call.
+#
+# The sweep's own rule selected 0.02, which reached 10 of 11 for two unnecessary
+# urgent referrals, and 0.02 is NOT adopted. Two reasons, both worth stating
+# rather than hiding. The rule's cost budget never bound — it allows 13.7 such
+# referrals and the most aggressive threshold spent 2 — so the rule degenerated
+# to maximising benefit with no counter-pressure, and its answer is the end of
+# the grid rather than a real optimum. And 2% of the probability mass in a
+# four-class softmax is close to the noise floor: validation is drawn from the
+# same clinical sources as training, so it cannot show what a flatter, less
+# confident probability vector from a phone photograph would do at that
+# threshold. 0.10 keeps a five-fold margin for that.
+#
+# Revisit once external validation photographs exist: they are the only
+# evidence that can price a low threshold under distribution shift.
+TRIAGE_URGENT_PROB = 0.10      # P(foot_ulcer) at or above this -> urgent, always
+
+# Left at 0.20. The sweep preferred 0.30, but the two are identical on
+# validation — both refer 576/576 serious cases and 3/685 benign — so there is
+# nothing to gain, and an unnecessary change would invalidate the test-set
+# audit figures for no measured benefit.
+TRIAGE_REVIEW_PROB = 0.20      # P(ulcer) + P(wound) at or above this -> prompt
+
+# Budgets for the threshold sweep (src/sweep_thresholds.py), which tunes the two
+# values above on the VALIDATION split.
+#
+# The sweep mirrors how the abstention threshold is chosen: optimise the safety
+# metric subject to a cost the service can absorb. Lowering a threshold raises
+# both the fraction of ulcers reaching the right urgency band and the number of
+# well people sent for care, so the budget is what stops "escalate everything"
+# from winning — a tool that refers all comers is safe and useless.
+#
+# The numbers are a judgement about clinic capacity, not a measurement. Urgent
+# is the tighter budget because a 24-hour appointment is the scarcer resource in
+# the rural setting this targets.
+TRIAGE_MAX_FALSE_URGENT = 0.02   # of people needing no care, at most this share sent urgently
+TRIAGE_MAX_FALSE_REFERRAL = 0.05  # ... and at most this share referred at all
+
+# Never-reassure rule. Shown with EVERY result including "healthy", because the
+# failure mode that matters is someone with a real ulcer reading "no concerning
+# features" and staying home.
+SAFETY_NET = (
+    "This screening looks at one photograph and cannot rule anything out. "
+    "Seek medical attention regardless of this result if you have diabetes, "
+    "reduced sensation or poor circulation in the feet, or if you notice "
+    "spreading redness, swelling, warmth, discharge, an unpleasant smell, "
+    "fever, or an area that is not healing."
+)
+
+DISCLAIMER = (
+    "Research prototype built for an MSc dissertation. This is NOT a medical "
+    "device and must not be used for diagnosis or to decide treatment. Always "
+    "consult a qualified healthcare professional."
+)
+
+
+def calibration_path(model_name: str) -> Path:
+    """Where a model's fitted temperature and abstention threshold are stored."""
+    return METRICS_DIR / f"{model_name}_calibration.json"
+
+
+def model_path(model_name: str) -> Path:
+    """Where a trained model's weights are saved."""
+    return MODELS_DIR / f"{model_name}_best.keras"
+
+
+def history_path(model_name: str) -> Path:
+    """Where a model's per-epoch training history is saved."""
+    return METRICS_DIR / f"{model_name}_history.json"
+
+
+def metrics_path(model_name: str) -> Path:
+    """Where a model's final evaluation metrics are saved."""
+    return METRICS_DIR / f"{model_name}_metrics.json"
+
+
+def validate() -> None:
+    """Fail fast on a self-inconsistent config rather than mid-training."""
+    total = TRAIN_SPLIT + VAL_SPLIT + TEST_SPLIT
+    if abs(total - 1.0) > 1e-9:
+        raise ValueError(f"TRAIN/VAL/TEST splits must sum to 1.0, got {total}")
+    if len(set(CLASS_NAMES)) != len(CLASS_NAMES):
+        raise ValueError(f"CLASS_NAMES contains duplicates: {CLASS_NAMES}")
+    if set(CLASS_DISPLAY_NAMES) != set(CLASS_NAMES):
+        raise ValueError("CLASS_DISPLAY_NAMES must have exactly one entry per class")
+    missing = set(MODEL_NAMES) - set(FINETUNE_LAYERS)
+    if missing:
+        raise ValueError(f"FINETUNE_LAYERS is missing an entry for: {sorted(missing)}")
+
+    missing_guidance = set(CLASS_NAMES) - set(CLINICAL_GUIDANCE)
+    if missing_guidance:
+        raise ValueError(f"CLINICAL_GUIDANCE has no entry for: {sorted(missing_guidance)}")
+    if not 0 < SELECTIVE_MIN_COVERAGE <= 1:
+        raise ValueError("SELECTIVE_MIN_COVERAGE must be in (0, 1]")
+
+    missing_triage = set(CLASS_NAMES) - set(CLASS_TRIAGE)
+    if missing_triage:
+        raise ValueError(f"CLASS_TRIAGE has no entry for: {sorted(missing_triage)}")
+    unknown_bands = set(CLASS_TRIAGE.values()) - set(TRIAGE_BANDS)
+    if unknown_bands:
+        raise ValueError(f"CLASS_TRIAGE names bands that do not exist: {sorted(unknown_bands)}")
+    # An ulcer must never map to anything but the most urgent band. This is the
+    # one clinical invariant in the file, so it fails at import rather than
+    # being noticed in a demo.
+    if CLASS_TRIAGE.get("foot_ulcer") != "urgent":
+        raise ValueError("foot_ulcer must map to the 'urgent' triage band")
+    for name, value in (("TRIAGE_URGENT_PROB", TRIAGE_URGENT_PROB),
+                        ("TRIAGE_REVIEW_PROB", TRIAGE_REVIEW_PROB),
+                        ("TRIAGE_MAX_FALSE_URGENT", TRIAGE_MAX_FALSE_URGENT),
+                        ("TRIAGE_MAX_FALSE_REFERRAL", TRIAGE_MAX_FALSE_REFERRAL)):
+        if not 0 < value <= 1:
+            raise ValueError(f"{name} must be in (0, 1]")
+    if TRIAGE_MAX_FALSE_URGENT > TRIAGE_MAX_FALSE_REFERRAL:
+        raise ValueError("TRIAGE_MAX_FALSE_URGENT cannot exceed TRIAGE_MAX_FALSE_REFERRAL: "
+                         "every urgent referral is also a referral")
+
+    for name, mapping in (("FOLDER_TO_CLASS", FOLDER_TO_CLASS),
+                          ("LEAF_FOLDER_TO_CLASS", LEAF_FOLDER_TO_CLASS)):
+        bad = {k: v for k, v in mapping.items() if v is not None and v not in CLASS_NAMES}
+        if bad:
+            raise ValueError(
+                f"{name} maps to labels that are not in CLASS_NAMES: {bad}. "
+                f"valid classes: {CLASS_NAMES}"
+            )
+
+
+validate()

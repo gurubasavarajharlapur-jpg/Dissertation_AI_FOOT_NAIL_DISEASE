@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# Data: the raw and processed image sets are large and are not redistributable
+# under the source datasets' licences. Keep the folders, never the contents.
+# ---------------------------------------------------------------------------
+data/*
+!data/raw/
+!data/processed/
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+*.zip
+*.tar
+*.tar.gz
+
+# Trained weights: too large for git and fully reproducible from src/train.py
+models/*
+!models/.gitkeep
+
+# Generated results. Final figures used in the dissertation should be committed
+# deliberately with `git add -f results/figures/<name>.png`.
+results/figures/*
+results/metrics/*
+!results/figures/.gitkeep
+!results/metrics/.gitkeep
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
