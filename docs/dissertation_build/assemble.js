@@ -77,10 +77,6 @@ children.push(new Paragraph({ spacing: { after: 260 },
 children.push(new Paragraph({ spacing: { after: 260 },
   children: [new TextRun({ text: 'Signature:', size: 22, font: 'Calibri' }),
              new TextRun({ text: '\t' + '_'.repeat(46), size: 22, color: GREY, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { before: 400, after: 200, line: 300 },
-  shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'BEFORE SUBMITTING.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'If your programme publishes its own declaration wording, replace the first paragraph above with theirs exactly rather than paraphrasing. Adjust the second paragraph so it describes accurately what you want on record, and delete it if your supervisor prefers the AI use recorded elsewhere. Then delete this box.', size: 20, italics: true, font: 'Calibri' }) ] }));
 children.push(new Paragraph({ children: [new PageBreak()] }));
 
 // ------------------------------------------------------------------ TOC ---
