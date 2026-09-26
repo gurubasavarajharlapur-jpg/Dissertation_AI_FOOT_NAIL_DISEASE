@@ -3,8 +3,9 @@ const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
 const fs = require('fs');
 const ACCENT = '1F4E79', GREY = '595959';
 
-const ch1 = require('./ch1'), ch3 = require('./ch3_mod'), ch4 = require('./ch4_mod');
-const ch5 = require('./ch5_mod'), ch6 = require('./ch6'), ch7 = require('./ch7');
+const ch1 = require('./ch1_mod'), ch3 = require('./ch3_mod'), ch4 = require('./ch4_mod');
+const ch5 = require('./ch5_mod'), ch6 = require('./ch6_mod'), ch7 = require('./ch7_mod');
+const appendices = require('./appendices');
 
 const centre = (t, o = {}) => new Paragraph({ spacing: { after: o.after ?? 140 },
   alignment: AlignmentType.CENTER,
@@ -248,15 +249,7 @@ children.push(new Paragraph({ spacing: { after: 120, line: 300 },
 // ---------------------------------------------------------- appendices ----
 children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, spacing: { after: 240 },
   children: [new TextRun({ text: 'Appendices', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
-children.push(P('Suggested appendices, each referenced from the relevant chapter:', { left: true }));
-[
- 'Appendix A — Source code repository and structure.',
- 'Appendix B — Full configuration file, showing every hyper-parameter used.',
- 'Appendix C — Complete per-class results for both architectures.',
- 'Appendix D — Additional Grad-CAM examples, including further misclassified cases.',
- 'Appendix E — External validation photographs and the batch evaluation output.',
-].forEach(a => children.push(new Paragraph({ spacing: { after: 120 },
-  children: [new TextRun({ text: a, size: 21, font: 'Calibri' })] })));
+children.push(...appendices);
 
 // ---------------------------------------------------------------- build ---
 const doc = new Document({
