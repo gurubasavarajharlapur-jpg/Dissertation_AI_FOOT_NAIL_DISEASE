@@ -211,7 +211,7 @@ def plot_examples(images: np.ndarray, width: int, model_name: str) -> Path:
         ax.imshow(arr.astype(np.uint8))
         ax.set_title(title, fontsize=10)
         ax.axis("off")
-    fig.suptitle(f"{model_name} — border ablation inputs", fontsize=11)
+    fig.suptitle(f"{model_name}: border ablation inputs", fontsize=11)
     fig.tight_layout()
     out = config.FIGURES_DIR / f"{model_name}_ablation_examples.png"
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -177,7 +177,7 @@ def main() -> int:
         low, high = wilson_interval(
             int(round(chosen_urgent["missed_ulcer_urgency"] * missed_ulcer.sum())),
             int(missed_ulcer.sum()))
-        label = ("no preference — curve flat" if urgent_flat
+        label = ("no preference, curve flat" if urgent_flat
                  else "knee of the curve: best benefit, least aggressive")
         print(f"  -> {label}: {chosen_urgent['threshold']:.2f}")
         print(f"     misclassified ulcers reaching urgent: "
@@ -223,7 +223,7 @@ def main() -> int:
     if chosen_review is None:
         print("  NO candidate meets the budget.")
     else:
-        label = ("no preference — curve flat" if review_flat
+        label = ("no preference, curve flat" if review_flat
                  else "knee of the curve: best benefit, least aggressive")
         print(f"  -> {label}: {chosen_review['threshold']:.2f}")
         print(f"     serious referred: {chosen_review['referral_recall']:.1%}")

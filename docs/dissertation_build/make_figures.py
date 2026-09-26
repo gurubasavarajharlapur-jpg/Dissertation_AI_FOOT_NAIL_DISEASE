@@ -48,7 +48,7 @@ def confusion():
         ax.set_xlabel("Predicted", fontsize=8.5)
         ax.set_ylabel("True", fontsize=8.5)
         errors = int(m.sum() - np.trace(m))
-        ax.set_title(f"{name}  —  {errors} errors of 1,248", fontsize=9.5,
+        ax.set_title(f"{name}:  {errors} errors of 1,248", fontsize=9.5,
                      color=ACCENT, fontweight="bold", pad=8)
         for s in ax.spines.values():
             s.set_visible(False)
@@ -158,15 +158,15 @@ def _arrow(ax, a, b, style="-|>"):
 def twostage():
     fig, ax = plt.subplots(figsize=(7.4, 3.5))
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
-    ax.text(0.25, 0.95, "Stage 1  —  frozen backbone", ha="center", fontsize=9.5,
+    ax.text(0.25, 0.95, "Stage 1:  frozen backbone", ha="center", fontsize=9.5,
             color=ACCENT, fontweight="bold")
-    ax.text(0.76, 0.95, "Stage 2  —  fine-tuning", ha="center", fontsize=9.5,
+    ax.text(0.76, 0.95, "Stage 2:  fine-tuning", ha="center", fontsize=9.5,
             color=ACCENT, fontweight="bold")
     ax.plot([0.505, 0.505], [0.06, 0.90], color="#D9D9D9", lw=1.2, ls=":")
     # stage 1
-    _box(ax, (0.03, 0.62), 0.44, 0.19, "ImageNet backbone  —  FROZEN\nno weights updated",
+    _box(ax, (0.03, 0.62), 0.44, 0.19, "ImageNet backbone:  FROZEN\nno weights updated",
          "#EDEDED", "#B0B0B0")
-    _box(ax, (0.03, 0.36), 0.44, 0.19, "New classification head  —  TRAINED\npooling, dropout 0.3, 4-way softmax",
+    _box(ax, (0.03, 0.36), 0.44, 0.19, "New classification head:  TRAINED\npooling, dropout 0.3, 4-way softmax",
          "#DEEAF6", ACCENT)
     _box(ax, (0.03, 0.10), 0.44, 0.17, "Learning rate 1e-3\nbest val_loss checkpointed", "white", "#B0B0B0")
     _arrow(ax, (0.25, 0.62), (0.25, 0.55))
@@ -192,7 +192,7 @@ def architecture():
     fig, ax = plt.subplots(figsize=(7.8, 4.6))
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
     _box(ax, (0.14, 0.845), 0.72, 0.115,
-         "src/config.py   \u2014   every path, hyper-parameter, split ratio and class name\n"
+         "src/config.py:   every path, hyper-parameter, split ratio and class name\n"
          "imported by every script, and validates itself on import",
          "#FFF2CC", "#BF8F00", fontsize=7.5)
     stages = [("download_data.py\ninspect_data.py", 0.005),
@@ -215,7 +215,7 @@ def architecture():
     _arrow(ax, (0.30, 0.585), (0.24, 0.47))
     _arrow(ax, (0.46, 0.4025), (0.54, 0.4025))
     _box(ax, (0.17, 0.10), 0.66, 0.135,
-         "src/prototype/app.py   \u2014   screening tab and batch evaluation tab\n"
+         "src/prototype/app.py:   screening tab and batch evaluation tab\n"
          "src/triage.py turns a prediction into a recommended action",
          "#DEEAF6", ACCENT, fontsize=7.5)
     _arrow(ax, (0.50, 0.335), (0.50, 0.235))

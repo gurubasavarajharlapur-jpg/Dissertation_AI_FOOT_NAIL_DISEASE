@@ -301,7 +301,7 @@ def plot_confusion_matrix(matrix: list[list[int]], model_name: str, normalize: b
         xticks=range(len(names)), yticks=range(len(names)),
         xticklabels=names, yticklabels=names,
         xlabel="Predicted", ylabel="True",
-        title=f"{model_name} — test confusion matrix"
+        title=f"{model_name}: test confusion matrix"
               f"{' (row-normalised)' if normalize else ''}",
     )
     plt.setp(ax.get_xticklabels(), rotation=30, ha="right", rotation_mode="anchor")
@@ -359,7 +359,7 @@ def plot_comparison(summaries: dict[str, dict]) -> Path | None:
         ax.set(title=f"{title} ({unit})")
         ax.margins(y=0.18)
 
-    fig.suptitle("MobileNetV2 vs ResNet50 — accuracy against deployment cost", fontsize=12)
+    fig.suptitle("MobileNetV2 vs ResNet50: accuracy against deployment cost", fontsize=12)
     fig.tight_layout()
     out = config.FIGURES_DIR / "model_comparison.png"
     fig.savefig(out, dpi=200)
@@ -471,7 +471,7 @@ def plot_gradcam_grid(
         ax.axis("off")
 
     fig.suptitle(
-        f"{model_name} — Grad-CAM on test predictions\n"
+        f"{model_name}: Grad-CAM on test predictions\n"
         f"red/yellow marks the region that drove the prediction",
         fontsize=11,
     )

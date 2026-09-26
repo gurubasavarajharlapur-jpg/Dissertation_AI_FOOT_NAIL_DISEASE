@@ -211,7 +211,7 @@ def plot_calibration(model_name: str, before: list[dict], after: list[dict],
             xs, ys = zip(*points)
             ax.plot(xs, ys, "o-", color=colour, ms=5, label=label)
     ax.set(xlabel="Mean predicted confidence", ylabel="Observed accuracy",
-           title=f"{model_name} — reliability diagram (validation)",
+           title=f"{model_name}: reliability diagram (validation)",
            xlim=(0, 1.02), ylim=(0, 1.02))
     ax.legend(loc="lower right", fontsize=9)
     ax.grid(alpha=0.3)
@@ -225,7 +225,7 @@ def plot_calibration(model_name: str, before: list[dict], after: list[dict],
             label=(f"threshold {chosen['threshold']:.3f}\n"
                    f"coverage {chosen['coverage']:.1%}, acc {chosen['accuracy']:.4f}"))
     ax.set(xlabel="Coverage (fraction of cases answered)", ylabel="Accuracy on answered cases",
-           title=f"{model_name} — risk-coverage trade-off (validation)")
+           title=f"{model_name}: risk-coverage trade-off (validation)")
     ax.legend(loc="lower left", fontsize=9)
     ax.grid(alpha=0.3)
 
