@@ -1,13 +1,22 @@
 # AI-Based Early Detection and Classification of Foot and Nail Conditions Using Transfer Learning for Rural Healthcare
 
-MSc dissertation project. Four-class classification of foot and nail images
-using transfer learning, with two architectures compared to quantify the
-accuracy-vs-portability trade-off that matters for deployment in rural clinics.
+MSc Data Science and Artificial Intelligence dissertation, Middlesex University.
+Four-class classification of foot and nail photographs using transfer learning,
+comparing two architectures to quantify the accuracy against portability
+trade-off that decides whether a screening tool can run on a phone.
+
+**Headline result.** MobileNetV2 reached 98.32 percent accuracy on 1,248
+held-out images against ResNet50's 98.96 percent. The difference is not
+statistically significant (McNemar's exact test, p = 0.1516) and a paired
+bootstrap bounds it at 1.4 accuracy points, while MobileNetV2 is a tenth of the
+size and roughly twice as fast on CPU. On ten photographs taken on phones
+outside all three source datasets, accuracy fell to 6 of 10. See
+[RESULTS.md](RESULTS.md) for the full picture.
 
 ## Problem
 
-Foot and nail conditions — fungal nail infection, wounds, and especially
-diabetic foot ulcers — are treatable when caught early and severe when they are
+Foot and nail conditions such as fungal nail infection, wounds and especially
+diabetic foot ulcers are treatable when caught early and severe when they are
 not. In rural settings the specialist who would recognise them is often absent.
 A model small enough to run on a health worker's phone could act as a screening
 aid, flagging cases that need referral.
@@ -30,8 +39,10 @@ order of the confusion matrix. It must not be changed after a model is trained.
 
 | | MobileNetV2 (primary) | ResNet50 (comparison) |
 |---|---|---|
-| Parameters | ~3.5M | ~25M |
-| Role | The deployment candidate — small enough for a mid-range phone | The accuracy reference — establishes what portability costs |
+| Parameters | 2,263,108 | 23,595,908 |
+| Size on disk | 21.78 MB | 210.55 MB |
+| CPU inference, per image | 248.29 ms | 460.56 ms |
+| Role | The deployment candidate, small enough for a mid-range phone | The accuracy reference, establishing what portability costs |
 
 Both are ImageNet-pretrained and fine-tuned through the **same code path, on the
 same splits, with the same hyper-parameters**. That is what makes this a
@@ -47,7 +58,7 @@ architecture rather than to the training setup.
 
 Neither dataset is committed to this repository: they are large, and
 redistribution is governed by their own licences. **Record each dataset's
-licence and citation before using it in the dissertation** — both must appear in
+licence and citation before using it in the dissertation**, both must appear in
 the methodology chapter.
 
 ## Project structure
@@ -55,30 +66,48 @@ the methodology chapter.
 ```
 .
 ├── data/
-│   ├── raw/              Downloaded datasets, untouched (git-ignored)
-│   └── processed/        Cleaned, resized, split data (git-ignored)
-├── models/               Trained weights (git-ignored)
+│   ├── raw/                     Downloaded datasets, untouched (git-ignored)
+│   └── processed/               Cleaned, resized, split data (git-ignored)
+├── models/                      Trained weights (git-ignored)
 ├── notebooks/
-│   └── 01_data_exploration.ipynb    Colab-compatible EDA
+│   ├── 01_data_exploration.ipynb      Colab-compatible data audit
+│   ├── 02_run_pipeline.ipynb          End-to-end run: fetch, prepare, train
+│   └── 03_regenerate_gradcam.ipynb    Rebuild the Grad-CAM figure
 ├── results/
-│   ├── figures/          Confusion matrices, training curves, plots
-│   └── metrics/          JSON/CSV metrics and data inventories
+│   ├── figures/                 Confusion matrices, curves, Grad-CAM (git-ignored)
+│   └── metrics/                 Per-image predictions and JSON metrics (git-ignored)
+├── docs/
+│   ├── findings_and_analysis.md       Every measured figure, with its reasoning
+│   ├── implementation_requirements.md Proposal requirements traced to code
+│   └── figures/                       Result figures used in the dissertation
 ├── src/
-│   ├── config.py         Every experimental setting, in one place
-│   ├── download_data.py  Fetch the source datasets into data/raw/
-│   ├── inspect_data.py   Audit data/raw/: counts, formats, sizes, quality
-│   ├── preprocessing.py  Clean, resize, split, augment      [Phase 2]
-│   ├── train.py          Fine-tune MobileNetV2 and ResNet50 [Phases 3-4]
-│   ├── evaluate.py       Metrics and confusion matrices     [Phase 5]
-│   └── prototype/
-│       └── app.py        Streamlit upload -> prediction UI  [Phase 6]
+│   ├── config.py                Every experimental setting, in one place
+│   ├── download_data.py         Fetch the source datasets into data/raw/
+│   ├── inspect_data.py          Audit data/raw/: counts, formats, sizes, quality
+│   ├── extract_montages.py      Tile the contact sheets into single images
+│   ├── preprocessing.py         Clean, resize, split by class and source
+│   ├── train.py                 Two-stage transfer learning, either architecture
+│   ├── evaluate.py              Test metrics, confusion matrices, Grad-CAM
+│   ├── calibrate.py             Temperature scaling and the referral threshold
+│   ├── ablate_border.py         Controlled occlusion test for dataset shortcuts
+│   ├── compare_models.py        Paired significance tests from saved predictions
+│   ├── audit_triage.py          What the referral policy does to the test set
+│   ├── sweep_thresholds.py      Tune the escalation threshold on validation
+│   ├── ood_test.py              Score a condition outside the four classes
+│   ├── triage.py                Turn a prediction into a recommended action
+│   ├── stats.py                 McNemar, paired bootstrap, Wilson intervals
+│   ├── colab_sync.py            Persist work across Colab runtime restarts
+│   └── prototype/app.py         Screening and batch evaluation interface
 ├── requirements.txt
+├── RESULTS.md
 └── README.md
 ```
 
 `src/config.py` is the file to read first. Every hyper-parameter, path, split
 ratio and augmentation setting is defined there and imported everywhere else, so
-an experiment is fully described by one file.
+an experiment is fully described by one file. It validates itself on import, so
+an inconsistent configuration fails immediately rather than part way through a
+training run.
 
 ## Setup
 
@@ -94,7 +123,7 @@ pip install -r requirements.txt
 ```
 
 On a machine without an NVIDIA GPU, swap `tensorflow` for `tensorflow-cpu` in
-`requirements.txt` — same API, far smaller download.
+`requirements.txt`, same API, far smaller download.
 
 This project targets **Keras 3** (bundled with TensorFlow 2.16+). Keras 3 removed
 `ImageDataGenerator`; augmentation uses `tf.data` with preprocessing layers
@@ -107,33 +136,41 @@ Open `notebooks/01_data_exploration.ipynb` in Colab. Its first cell detects
 Colab, mounts Drive, clones this repo and installs the requirements. The dataset
 is symlinked to Drive so it survives the runtime being recycled.
 
-The notebook clones the `claude/foot-nail-disease-ai-fyrdsb` branch explicitly.
-The project code is not on `main` yet, so a plain `git clone` checks out an
-empty repository.
+The notebooks clone the `claude/foot-nail-disease-ai-fyrdsb` branch explicitly,
+which is the development branch. `main` carries the same code.
 
 ## Usage
 
 ```bash
-# 1. Fetch the datasets into data/raw/
-python src/download_data.py --list      # preview without downloading
-python src/download_data.py
+source .venv/bin/activate          # or: pip install -r requirements.txt
 
-# 2. Audit what actually arrived
-python src/inspect_data.py
+python src/download_data.py        # fetch the source datasets into data/raw/
+python src/inspect_data.py         # audit what actually arrived
+python src/extract_montages.py     # tile the contact sheets
+python src/preprocessing.py        # build data/processed/ and the split files
+
+python src/train.py --model mobilenetv2
+python src/train.py --model resnet50
+python src/evaluate.py             # test metrics, confusion matrices, Grad-CAM
+python src/calibrate.py            # temperature scaling, referral threshold
+python src/ablate_border.py --model mobilenetv2
+python src/ood_test.py             # behaviour on a condition outside the classes
+
+streamlit run src/prototype/app.py # the screening interface
 ```
 
-Steps 3 onward are implemented phase by phase — see the plan below.
+`compare_models.py`, `audit_triage.py` and `sweep_thresholds.py` need neither a
+GPU nor TensorFlow. They read the saved per-image predictions, which carry the
+full probability vector for every image, so any policy layered on the classifier
+can be re-audited and re-tuned in seconds without repeating inference.
 
-## Project plan
+## Status
 
-| Phase | Deliverable | Status |
-|---|---|---|
-| 1 | Environment, project structure, config, data download + inspection | **Done** |
-| 2 | `preprocessing.py` — clean, resize, split, augment | Not started |
-| 3 | `train.py` — MobileNetV2 (primary) | Not started |
-| 4 | `train.py` — ResNet50 (comparison) | Not started |
-| 5 | `evaluate.py` — metrics, confusion matrices, model comparison | Not started |
-| 6 | `prototype/app.py` — image upload → prediction interface | Not started |
+Complete. All six phases are built, both architectures are trained and evaluated
+on the final split, and the dissertation is written. `docs/findings_and_analysis.md`
+records every measured figure with the reasoning behind it, and
+`docs/implementation_requirements.md` traces each proposal requirement to the
+code that satisfies it.
 
 ## Methodology notes
 
@@ -141,15 +178,16 @@ These are deliberate choices, each with a reason that belongs in the write-up.
 
 **Why transfer learning.** Clinical foot/nail datasets run to a few thousand
 images. Training a modern CNN from scratch on that much data overfits badly.
-ImageNet-pretrained filters already detect edges, textures and colour gradients —
-exactly the low-level features that distinguish a healthy nail from a thickened,
-discoloured one — so only the later, task-specific layers need to be learned.
+ImageNet-pretrained filters already detect edges, textures and colour gradients.
+Those are exactly the low-level features that distinguish a healthy nail from a
+thickened, discoloured one, so only the later, task-specific layers need to be
+learned.
 
 **Why two-stage training.** The new classifier head starts from random weights.
 Training it end-to-end immediately would push large, meaningless gradients back
 through the pretrained backbone and destroy the features being transferred. So
 the backbone is frozen first while the head learns, then the top layers are
-unfrozen at a learning rate ~100× lower.
+unfrozen at a learning rate one hundred times lower.
 
 **Why the test split is touched once.** Model selection, early stopping and
 hyper-parameter choices all use the validation split. The test split is evaluated

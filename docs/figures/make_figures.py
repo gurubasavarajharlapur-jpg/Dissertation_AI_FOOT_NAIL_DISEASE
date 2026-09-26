@@ -1,4 +1,4 @@
-"""Generate the dissertation figures that can be drawn from recorded results.
+"""Generate the result figures used in Chapter 5 of the dissertation.
 
 Every number here is transcribed from docs/findings_and_analysis.md, which is
 the project's single source of truth for measured results. Nothing is
@@ -15,8 +15,7 @@ import numpy as np
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent / "figs"
-OUT.mkdir(exist_ok=True)
+OUT = Path(__file__).resolve().parent
 ACCENT, ACCENT2, GREY = "#1F4E79", "#2F5496", "#595959"
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9,
                      "axes.edgecolor": "#808080", "axes.labelcolor": "#262626",
