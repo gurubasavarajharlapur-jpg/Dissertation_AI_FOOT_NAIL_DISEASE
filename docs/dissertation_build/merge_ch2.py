@@ -41,6 +41,38 @@ for prefix, uri in {
     ET.register_namespace(prefix, uri)
 
 
+RUN_IN_HEADING = "2.5.3 Artificial Intelligence in Medical Image Analysis"
+
+
+def split_run_in_heading(kids):
+    """Give heading 2.5.3 its own paragraph.
+
+    In the source document that heading is the last run of the paragraph
+    holding the Figure 2.5 label and image, so Word does not see it as a
+    heading and it is missing from the contents page. The run is moved into a
+    new paragraph styled like its siblings 2.5.1, 2.5.2 and 2.5.4; the figure
+    label and image stay where they are. Nothing is retyped, so the author's
+    text and formatting are unchanged.
+    """
+    for i, k in enumerate(kids):
+        if k.tag != W + "p":
+            continue
+        if RUN_IN_HEADING not in "".join(t.text or "" for t in k.iter(W + "t")):
+            continue
+        runs = k.findall(W + "r")
+        head = [r for r in runs
+                if RUN_IN_HEADING in "".join(t.text or "" for t in r.iter(W + "t"))]
+        if len(head) != 1 or head[0] is runs[0]:
+            return kids            # already a heading of its own, or not this shape
+        para = ET.Element(W + "p")
+        style = ET.SubElement(ET.SubElement(para, W + "pPr"), W + "pStyle")
+        style.set(W + "val", "Heading2")   # remapped to Heading3 with the others
+        k.remove(head[0])
+        para.append(head[0])
+        return kids[:i + 1] + [para] + kids[i + 1:]
+    raise SystemExit("heading 2.5.3 not found where expected")
+
+
 def chapter2_elements():
     """The source body children that make up Chapter 2, adjusted for insertion."""
     body = ET.parse(SRC / "word" / "document.xml").getroot().find(W + "body")
@@ -49,6 +81,7 @@ def chapter2_elements():
     def text_of(el):
         return "".join(t.text or "" for t in el.iter(W + "t")).strip()
 
+    kids = split_run_in_heading(kids)
     start = next(i for i, k in enumerate(kids)
                  if k.tag == W + "p" and text_of(k) == "Chapter 2: Literature Review")
     end = next(i for i, k in enumerate(kids) if k.tag == W + "sectPr")

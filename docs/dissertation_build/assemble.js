@@ -52,8 +52,12 @@ children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { after:
   children: [new TextRun({ text: 'Acknowledgements', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { before: 100, after: 200, line: 300 },
   shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'WRITE THIS YOURSELF.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'A short paragraph thanking your supervisor and anyone else who helped. This one should be in your own words.', size: 20, italics: true, font: 'Calibri' }) ] }));
+  children: [ new TextRun({ text: 'MAKE THIS YOUR OWN.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
+    new TextRun({ text: 'A draft in your voice. Add or remove whoever you like, then delete this box.', size: 20, italics: true, font: 'Calibri' }) ] }));
+children.push(P('I would like to thank my supervisor, Dr Krishnadas Nanath, for his guidance throughout this project. His feedback shaped the direction of the work at several points, and his questions were often the reason I looked more carefully at a result instead of accepting it.'));
+children.push(P('I am grateful to the four friends who agreed to have their feet photographed for the external validation in Chapter 5. It is an odd thing to be asked, and the ten photographs they made possible turned out to be one of the more useful parts of this dissertation.'));
+children.push(P('I would also like to acknowledge the researchers who made their image datasets publicly available. Work of this kind is only possible because other people chose to share their data, and this project would not exist without them.'));
+children.push(P('Finally, I thank my family for their support and patience while I was working on this.'));
 children.push(new Paragraph({ children: [new PageBreak()] }));
 
 // ------------------------------------------------------------ declaration --
