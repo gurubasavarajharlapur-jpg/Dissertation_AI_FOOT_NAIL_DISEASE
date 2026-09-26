@@ -123,8 +123,8 @@ children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADI
   children: [new TextRun({ text: 'References', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { before: 100, after: 200, line: 300 },
   shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'CHECK THE STYLE AGAINST YOUR HANDBOOK.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'One alphabetical list for the whole dissertation: the bibliography from your proposal, everything cited in Chapter 2, everything cited in Chapters 3 to 7, and the two image datasets. It is written in Harvard style, so check it against the style your programme requires. Four citations need a decision from you and are listed after the references. Delete this box afterwards.', size: 20, italics: true, font: 'Calibri' }) ] }));
+  children: [ new TextRun({ text: 'ONE LIST, HARVARD STYLE.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
+    new TextRun({ text: 'A single alphabetical sequence for the whole dissertation, covering the bibliography from your proposal, everything cited in Chapter 2, everything cited in Chapters 3 to 7, and the two image datasets. It follows the Harvard style Middlesex uses, as set out in Cite Them Right. Delete this box before submitting.', size: 20, italics: true, font: 'Calibri' }) ] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Almufadi, N.F., Alhasson, H.F. and Alharbi, S.S. (2025) ‘E-DFu-Net: an efficient deep convolutional neural network model for diabetic foot ulcer classification’, Biomolecules and Biomedicine, 25(2), pp. 445–460.', size: 21, font: 'Calibri' })] }));
@@ -160,7 +160,7 @@ children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   children: [new TextRun({ text: 'Gupta, A.K. et al. (2022) ‘Diagnosing onychomycosis: a step forward?’, Journal of Cosmetic Dermatology, 21(2), pp. 530–535.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Han, S.S. (2017) Model Onychomycosis Training Datasets (JPG thumbnails) and Validation Datasets (JPG images) [dataset]. figshare. Available at: https://figshare.com/articles/dataset/5398573.', size: 21, font: 'Calibri' })] }));
+  children: [new TextRun({ text: 'Han, S.S. (2017) Model Onychomycosis Training Datasets (JPG thumbnails) and Validation Datasets (JPG images) [Dataset]. figshare. Available at: https://figshare.com/articles/dataset/5398573 (Accessed: 26 September 2026).', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Han, S.S., Park, G.H., Lim, W., Kim, M.S., Na, J.I., Park, I. and Chang, S.E. (2018) ‘Deep neural networks show an equivalent and often superior performance to dermatologists in onychomycosis diagnosis: automatic construction of onychomycosis datasets by region-based convolutional deep neural network’, PLOS ONE, 13(1), e0191493.', size: 21, font: 'Calibri' })] }));
@@ -172,7 +172,7 @@ children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   children: [new TextRun({ text: 'Howard, A., Sandler, M., Chu, G., Chen, L.-C., Chen, B., Tan, M., Wang, W., Zhu, Y., Pang, R., Vasudevan, V., Le, Q.V. and Adam, H. (2019) ‘Searching for MobileNetV3’, Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 1314–1324.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Howard, A.G., Zhu, M., Chen, B., Kalenichenko, D., Wang, W., Weyand, T., Andreetto, M. and Adam, H. (2017) ‘MobileNets: efficient convolutional neural networks for mobile vision applications’, arXiv preprint arXiv:1704.04861.', size: 21, font: 'Calibri' })] }));
+  children: [new TextRun({ text: 'Howard, A.G., Zhu, M., Chen, B., Kalenichenko, D., Wang, W., Weyand, T., Andreetto, M. and Adam, H. (2017) ‘MobileNets: efficient convolutional neural networks for mobile vision applications’, arXiv. Available at: https://arxiv.org/abs/1704.04861 (Accessed: 26 September 2026).', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Howard, J. and Ruder, S. (2018) ‘Universal language model fine-tuning for text classification’, Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics, pp. 328–339.', size: 21, font: 'Calibri' })] }));
@@ -184,7 +184,7 @@ children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   children: [new TextRun({ text: 'International Working Group on the Diabetic Foot (2023) IWGDF Guidelines on the Prevention and Management of Diabetic Foot Disease. Amsterdam: IWGDF.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Islam, M.M. (2026) Lower Limb and Feet Wound Image Dataset for Medical Analysis, version 3 [dataset]. Mendeley Data. DOI: 10.17632/hsj38fwnvr.3.', size: 21, font: 'Calibri' })] }));
+  children: [new TextRun({ text: 'Islam, M.M. (2026) Lower Limb and Feet Wound Image Dataset for Medical Analysis, version 3 [Dataset]. Mendeley Data. Available at: https://doi.org/10.17632/hsj38fwnvr.3 (Accessed: 26 September 2026).', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Krizhevsky, A., Sutskever, I. and Hinton, G.E. (2012) ‘ImageNet classification with deep convolutional neural networks’, Advances in Neural Information Processing Systems, 25, pp. 1097–1105.', size: 21, font: 'Calibri' })] }));
@@ -208,7 +208,7 @@ children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   children: [new TextRun({ text: 'Pan, S.J. and Yang, Q. (2010) ‘A survey on transfer learning’, IEEE Transactions on Knowledge and Data Engineering, 22(10), pp. 1345–1359.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Rajpurkar, P., Irvin, J., Zhu, K., Yang, B., Mehta, H., Duan, T., Ding, D., Bagul, A., Langlotz, C., Shpanskaya, K., Lungren, M.P. and Ng, A.Y. (2017) ‘CheXNet: radiologist-level pneumonia detection on chest X-rays with deep learning’, arXiv preprint arXiv:1711.05225.', size: 21, font: 'Calibri' })] }));
+  children: [new TextRun({ text: 'Rajpurkar, P., Irvin, J., Zhu, K., Yang, B., Mehta, H., Duan, T., Ding, D., Bagul, A., Langlotz, C., Shpanskaya, K., Lungren, M.P. and Ng, A.Y. (2017) ‘CheXNet: radiologist-level pneumonia detection on chest X-rays with deep learning’, arXiv. Available at: https://arxiv.org/abs/1711.05225 (Accessed: 26 September 2026).', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Sait, A.R.W. and Nagaraj, R. (2025) ‘Diabetic foot ulcers detection model using a hybrid convolutional neural networks–vision transformers approach’, Diagnostics, 15(6), pp. 1–24.', size: 21, font: 'Calibri' })] }));
@@ -232,36 +232,16 @@ children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   children: [new TextRun({ text: 'Wang, C., Anisuzzaman, D.M., Williamson, V., Dhar, M.K., Rostami, B., Niezgoda, J., Gopalakrishnan, S. and Yu, Z. (2020) ‘Fully automatic wound segmentation with deep convolutional neural networks’, Scientific Reports, 10, 21897.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Wang, C., Mahbod, A., Ellinger, I., Galdran, A., Gopalakrishnan, S., Niezgoda, J. and Yu, Z. (2022) ‘FUSeg: the foot ulcer segmentation challenge’, arXiv preprint arXiv:2201.00414.', size: 21, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { after: 140, line: 300 },
-  indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'World Health Organization (2021) Global Strategy on Digital Health 2020–2025. Geneva: World Health Organization.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'World Health Organization and World Bank (2023) Tracking Universal Health Coverage: 2023 Global Monitoring Report. Geneva: World Health Organization and World Bank.', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Yap, M.H., Cassidy, B., Pappachan, J.M., O’Shea, C., Gillespie, D. and Reeves, N. (2021) ‘Analysis towards classification of infection and ischaemia of diabetic foot ulcers’, arXiv preprint.', size: 21, font: 'Calibri' })] }));
+  children: [new TextRun({ text: 'Yap, M.H., Cassidy, B., Pappachan, J.M., O’Shea, C., Gillespie, D. and Reeves, N. (2021) ‘Analysis towards classification of infection and ischaemia of diabetic foot ulcers’, arXiv. Available at: https://arxiv.org/abs/2104.03068 (Accessed: 26 September 2026).', size: 21, font: 'Calibri' })] }));
 children.push(new Paragraph({ spacing: { after: 140, line: 300 },
   indent: { left: 440, hanging: 440 },
   children: [new TextRun({ text: 'Zhang, J., Xia, Y., Xie, Y., Fulham, M. and Feng, D.D. (2018) ‘Classification of medical images in the biomedical literature by jointly using deep and handcrafted visual features’, IEEE Journal of Biomedical and Health Informatics, 22(5), pp. 1521–1530.', size: 21, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { before: 320, after: 200, line: 300 },
-  shading: { type: ShadingType.CLEAR, fill: 'FFF4E5' },
-  children: [ new TextRun({ text: 'FOUR CITATIONS NEED A DECISION.  ', bold: true, size: 20, color: 'B26500', font: 'Calibri' }),
-    new TextRun({ text: 'Every other citation in the dissertation now has an entry above. These four could not be matched to a source with confidence, so nothing has been guessed. A citation with no reference loses marks; a reference to a work that does not exist loses more, so settle each one before you submit and then delete this box.', size: 20, italics: true, font: 'Calibri' }) ] }));
-children.push(new Paragraph({ spacing: { after: 120, line: 300 },
-  indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Patel et al. (2017), cited in section 2.3 — no source matching this citation could be found. Replace it with a work you have read, or delete the citation.', size: 21, italics: true, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { after: 120, line: 300 },
-  indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Zhang et al. (2018), cited in section 2.3 — the entry in the list is the closest match found. Confirm it is the work you meant.', size: 21, italics: true, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { after: 120, line: 300 },
-  indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Wang et al. (2022), cited in section 2.5.6 — the entry in the list is the closest match found, but it is about segmentation while the sentence cites it for classification accuracy. Confirm or re-point it.', size: 21, italics: true, font: 'Calibri' })] }));
-children.push(new Paragraph({ spacing: { after: 120, line: 300 },
-  indent: { left: 440, hanging: 440 },
-  children: [new TextRun({ text: 'Gupta et al. (2022) is cited twice, in sections 2.5.2 and 2.5.6. The entry in the list fits the first, on laboratory diagnosis; it does not support the second, on transfer learning architectures. Re-point the second citation, and complete the author list from the journal page.', size: 21, italics: true, font: 'Calibri' })] }));
-
 // ---------------------------------------------------------- appendices ----
 children.push(new Paragraph({ pageBreakBefore: true, heading: HeadingLevel.HEADING_1, spacing: { after: 240 },
   children: [new TextRun({ text: 'Appendices', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));

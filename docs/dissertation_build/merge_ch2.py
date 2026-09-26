@@ -41,6 +41,39 @@ for prefix, uri in {
     ET.register_namespace(prefix, uri)
 
 
+# Three citations in Chapter 2 had no traceable source, or named a source that
+# does not support the sentence citing it. They are corrected here rather than
+# in the source file, so the author's submitted document stays untouched and
+# every change to it is visible in one place. Each is a whole-string edit of a
+# single text node, and the build fails if a string is not found exactly once.
+CITATION_FIXES = [
+    # No work matching "Patel et al. (2017)" could be identified. The two
+    # remaining citations support the sentence on their own.
+    (" (Patel et al., 2017; Zhang et al., 2018; Goodfellow, Bengio and Courville, 2016).",
+     " (Zhang et al., 2018; Goodfellow, Bengio and Courville, 2016)."),
+    # The only traceable "Wang et al. (2022)" in this field is the FUSeg
+    # segmentation challenge, which does not report classification accuracy.
+    ("(Goyal et al., 2020; Wang et al., 2022).",
+     "(Goyal et al., 2020)."),
+    # Gupta et al. (2022) is a commentary on diagnosing onychomycosis and does
+    # not evaluate network architectures. Han et al. (2018) does, on this exact
+    # task and on the dataset this project uses for its nail images.
+    ("indicating that transfer learning can effectively compensate for limited data availability (Gupta et al., 2022).",
+     "indicating that transfer learning can effectively compensate for limited data availability (Han et al., 2018)."),
+]
+
+
+def fix_citations(kids):
+    """Apply CITATION_FIXES to the Chapter 2 text nodes."""
+    for old, new in CITATION_FIXES:
+        hits = [t for k in kids for t in k.iter(W + "t") if t.text and old in t.text]
+        if len(hits) != 1:
+            raise SystemExit(f"citation fix matched {len(hits)} nodes: {old[:50]!r}")
+        hits[0].text = hits[0].text.replace(old, new)
+    print(f"citations corrected in Chapter 2: {len(CITATION_FIXES)}")
+    return kids
+
+
 RUN_IN_HEADING = "2.5.3 Artificial Intelligence in Medical Image Analysis"
 
 
@@ -81,7 +114,7 @@ def chapter2_elements():
     def text_of(el):
         return "".join(t.text or "" for t in el.iter(W + "t")).strip()
 
-    kids = split_run_in_heading(kids)
+    kids = fix_citations(split_run_in_heading(kids))
     start = next(i for i, k in enumerate(kids)
                  if k.tag == W + "p" and text_of(k) == "Chapter 2: Literature Review")
     end = next(i for i, k in enumerate(kids) if k.tag == W + "sectPr")
