@@ -47,7 +47,7 @@ const BREAK = () => new Paragraph({ children: [new PageBreak()] });
 // text column is 624 points wide, so nothing here is scaled past it.
 const IMG = (file, w, h) => new Paragraph({ alignment: AlignmentType.CENTER,
   spacing: { before: 200, after: 40 },
-  children: [new ImageRun({ type: 'png',
+  children: [new ImageRun({ type: file.endsWith('.jpg') ? 'jpg' : 'png',
     data: fs.readFileSync(path.join(__dirname, 'figs', file)),
     transformation: { width: w, height: h } })] });
 
