@@ -1,5 +1,5 @@
 const { Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow,
-        TableCell, WidthType, ShadingType, PageBreak, ImageRun } = require('docx');
+        TableCell, WidthType, ShadingType, PageBreak, ImageRun, SimpleField } = require('docx');
 const fs = require('fs');
 const path = require('path');
 const ACCENT = '1F4E79', GREY = '595959';
@@ -20,11 +20,14 @@ const H2 = t => new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { befo
   children: [new TextRun({ text: t, font: 'Calibri' })] });
 const H3 = t => new Paragraph({ heading: HeadingLevel.HEADING_3, spacing: { before: 260, after: 120 },
   children: [new TextRun({ text: t, font: 'Calibri' })] });
+const tc = (id, text) => new SimpleField(`TC "${text.replace(/"/g, "'")}" \\f ${id}`);
 const cap = (n, t) => new Paragraph({ spacing: { before: 240, after: 90 },
-  children: [ new TextRun({ text: `Table ${n}.  `, bold: true, size: 20, font: 'Calibri' }),
+  children: [ tc('T', `Table ${n}   ${t}`),
+              new TextRun({ text: `Table ${n}.  `, bold: true, size: 20, font: 'Calibri' }),
               new TextRun({ text: t, size: 20, font: 'Calibri' }) ] });
 const fcap = (n, t) => new Paragraph({ spacing: { before: 90, after: 200 }, alignment: AlignmentType.CENTER,
-  children: [ new TextRun({ text: `Figure ${n}.  `, bold: true, size: 20, font: 'Calibri' }),
+  children: [ tc('F', `Figure ${n}   ${t}`),
+              new TextRun({ text: `Figure ${n}.  `, bold: true, size: 20, font: 'Calibri' }),
               new TextRun({ text: t, size: 20, font: 'Calibri' }) ] });
 const FIG = t => new Paragraph({ spacing: { before: 180, after: 40 }, alignment: AlignmentType.CENTER,
   shading: { type: ShadingType.CLEAR, fill: 'F2F2F2' },

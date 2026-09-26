@@ -5,6 +5,7 @@ c.push(...CH(5, 'Results'));
 c.push(P('This chapter reports what the experiments produced. All figures come from a single run in which both architectures were trained on the same split and then evaluated, calibrated and ablated together, so nothing here mixes results from different runs. The test split was used once, at the end; every development decision used validation. Interpretation is held back for Chapter 6.'));
 
 c.push(H2('5.1  Dataset and training'));
+c.push(P('Preparation reduced 21,733 candidate images to the 8,374 used, and the split placed 1,248 of them in the test set. Table 5.1 gives the count at each stage.'));
 //@TABLE 5.1
 c.push(P('The two architectures were trained under identical conditions. Both improved substantially in the second stage, which is the expected behaviour of fine-tuning and confirms the staged procedure was worth its extra complexity.'));
 //@TABLE 5.2
@@ -15,6 +16,7 @@ c.push(P('Both models were evaluated once on the 1,248 held-out images.'));
 //@TABLE 5.4
 c.push(IMG('confusion.png', 560, 267));
 c.push(fcap('5.1', 'Confusion matrices on the test set. Counts are images; rows are the true class and columns the predicted class.'));
+c.push(P('The clinically important difference is not the 0.64 accuracy points but the missed ulcers: nine for MobileNetV2 against three for ResNet50. ResNet50 is perfect on both nail classes and on healthy feet, and every one of its thirteen errors is a wound and ulcer confusion. The dominant error mode is the same for both models and is clinically coherent, since both are foot lesions; neither model ever classified a wound or an ulcer as healthy, which is the error that would matter most.'));
 
 c.push(H2('5.3  Statistical comparison of the two models'));
 c.push(P('Because both models are scored on the same images their errors are correlated, so the comparison is paired.'));
@@ -32,18 +34,22 @@ c.push(H2('5.5  Calibration and selective prediction'));
 //@TABLE 5.8 AS 5.7
 c.push(P('The two models needed opposite corrections. MobileNetV2 was overconfident and its temperature of 1.4278 softens its probabilities; ResNet50 was slightly underconfident and its temperature of 0.9495 sharpens them. Calibration error fell for MobileNetV2 and was already small for ResNet50. Neither temperature reordered any prediction, which was verified: accuracy is unchanged and only the confidence attached to each answer moves.'));
 //@TABLE 5.9 AS 5.8
+c.push(P('For MobileNetV2 this is the most defensible clinical statement available from these results: decline roughly three cases in a hundred and refer them, and be correct on 99.59 percent of the rest. Abstaining on about 37 low-confidence cases removes roughly 16 of the 21 errors. ResNet50 required no threshold, having met the 99 percent target while answering every validation case, so the selection procedure correctly returned none. Selective prediction therefore adds most where it is most needed, on the compact model intended for deployment.'));
 
 c.push(BREAK());
 c.push(H2('5.6  Testing for dataset shortcuts'));
+c.push(P('All three tests described in Section 3.9 returned results consistent with the models classifying the condition rather than the source, for both architectures.'));
 c.push(H3('5.6.1  Accuracy within a single source'));
 //@TABLE 5.10 AS 5.9
+c.push(P('This is the strictest test available in the data. Both models score close to 99 percent where knowing the dataset tells them nothing, and both classified all 413 healthy feet in this source correctly, so every error and every disagreement here was on a wound. A model separating healthy from diseased by recognising the dataset could not do that, because both classes come from the same dataset.'));
 c.push(H3('5.6.2  Grad-CAM attention'));
 c.push(P('Attention localises to the toes and nail plates with the image margins cold, consistently across every example inspected, and the overlays were generated for misclassified predictions as well as correct ones rather than curating successes. The evaluation script writes them for both architectures alongside the other results.'));
 c.push(H3('5.6.3  Controlled occlusion'));
+c.push(P('Border brightness does differ by class, which is why the test was run rather than assumed unnecessary: healthy images average 166.7 and 170.1 across their two sources against 107.6 for nail fungal and 112.7 for foot ulcer, and nearly a third of the healthy nail tiles have near-white borders.'));
 //@TABLE 5.11 AS 5.10
 c.push(IMG('ablation.png', 560, 385));
 c.push(fcap('5.3', 'Controlled occlusion at 20-pixel border width. The interior control removes the same number of pixels as the border arm and differs only in location.'));
-c.push(P('Removing the border costs MobileNetV2 1.6 accuracy points; removing the same number of interior pixels costs 12.3, roughly eight times more. For ResNet50 it is 1.9 against 8.7, about four and a half times. Neither model’s decision depends on the frame, and the control is what makes that statement evidence rather than assertion.'));
+c.push(P('Masking the 20-pixel border takes MobileNetV2 from 0.9832 to 0.9671, a loss of 1.6 accuracy points, while masking the same number of interior pixels takes it to 0.8598, a loss of 12.3 points and roughly eight times as much. For ResNet50 the same arms give 0.9704 and 0.9030, losses of 1.9 and 8.7 points, a ratio of about four and a half. Neither model’s decision depends on the frame, and the equal-area control is what makes that statement evidence rather than assertion.'));
 c.push(P('A fourth arm masks the interior and leaves only a 20-pixel frame, to measure how much either model can read from the border alone. MobileNetV2 scores 0.4952 against a majority-class floor of 0.4455, recovering only 62 of 692 non-healthy images; ResNet50 scores 0.5994, recovering 193. Per-class figures are in Appendix C. MobileNetV2 therefore extracts almost nothing from the frame and degrades into predicting the majority class rather than inventing a confident diagnosis, which is the behaviour wanted from a screening tool, while ResNet50 recovers about three times as much, the expected consequence of ten times the parameters.'));
 
 c.push(H2('5.7  Referral policy'));

@@ -1,6 +1,7 @@
 const { P, CH, H2, H3, cap, fcap, IMG, T, BREAK } = require('./lib');
 const c = [];
 c.push(...CH(3, 'Methodology'));
+c.push(P('This chapter sets out the experimental design. The central requirement is that the comparison between the two architectures is controlled: both are trained on the same images, with the same split, preprocessing, augmentation, class weights and training procedure, so that any difference between them is attributable to the architecture rather than to the conditions of the experiment.'));
 
 
 c.push(H2('3.1  Research design'));
@@ -43,7 +44,6 @@ c.push(P('The ablation design is worth setting out carefully. Masking the border
 
 c.push(H2('3.10  Calibration, selective prediction and the referral policy'));
 c.push(P('A softmax score is not a probability. Temperature scaling (Guo et al., 2017) was fitted on the validation logits by minimising negative log likelihood, and expected calibration error measured over fifteen bins before and after; a single temperature rescales confidence without changing the ranking of the classes, which was verified. From the calibrated probabilities a risk-coverage curve was computed and an abstention threshold selected as the lowest confidence at which accuracy among answered cases reaches 99 percent. Below it the system declines to name a condition and refers the case instead.'));
-c.push(P('From the calibrated probabilities a risk-coverage curve was computed and an abstention threshold selected as the lowest confidence at which accuracy among the answered cases reaches 99 percent. Below it the system declines to name a condition and refers the case instead.'));
 c.push(P('The classifier reports appearance; the prototype has to recommend an action, and the two errors are not equally costly. A false referral wastes an appointment, while telling somebody with an ulcer that nothing is wrong can cost them a foot. The policy is therefore deliberately asymmetric: each class carries a fixed clinical band, an inconclusive result is raised to a routine referral rather than falling back on the most likely class, and a serious condition holding meaningful probability escalates the band even when it is not the top prediction, with the escalating condition owning the advice shown. Nothing here is learned; the bands and thresholds are a human decision recorded in the configuration module.'));
 
 c.push(H2('3.11  Statistical analysis'));
@@ -62,5 +62,6 @@ c.push(P('Every path, hyper-parameter, split ratio, class name and augmentation 
 c.push(P('All image data comes from public research datasets used in accordance with their terms. They contain photographs of feet and nails only, with no faces and no identifying information, and no attempt was made to re-identify anyone. The system is positioned as an assistive screening aid rather than a diagnostic device, and this is enforced in the prototype rather than merely stated: it shows a disclaimer with every result, declines to name a condition when confidence is low, and always directs the user towards a healthcare professional.'));
 
 c.push(H2('3.14  Summary'));
+c.push(P('The design is a controlled comparison: two architectures trained under identical conditions on one split that is read once, at the end. Beyond the classification itself it includes three tests of whether the models are reading pathology or dataset provenance, a calibration and abstention procedure that makes the reported confidence meaningful, a referral policy deliberately biased towards sending people to a clinician, and two tests of behaviour outside the source datasets. Chapter 4 describes how this design was implemented, and the problems encountered in implementing it.'));
 
 module.exports = c;

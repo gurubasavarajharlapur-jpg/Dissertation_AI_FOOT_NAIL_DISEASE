@@ -28,6 +28,7 @@ children.push(
   centre('A dissertation submitted in partial fulfilment', { size: 21, c: GREY, after: 60 }),
   centre('of the requirements for the degree of', { size: 21, c: GREY, after: 60 }),
   centre('MSc Data Science and Artificial Intelligence', { size: 21, c: GREY, after: 600 }),
+  centre('September 2026', { size: 21, c: GREY, after: 300 }),
   new Paragraph({ children: [new PageBreak()] }),
 );
 
@@ -84,6 +85,17 @@ children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { after:
 children.push(new Paragraph({ spacing: { after: 200 },
   children: [new TextRun({ text: 'In Word: right-click the table below and choose "Update Field", then "Update entire table", to fill in the page numbers.', size: 19, italics: true, color: GREY, font: 'Calibri' })] }));
 children.push(new TableOfContents('Contents', { hyperlink: true, headingStyleRange: '1-3' }));
+children.push(new Paragraph({ children: [new PageBreak()] }));
+
+// ------------------------------------------- lists of tables and figures ---
+// Built from the TC fields carried by every caption, so Word fills in real page
+// numbers on the same field update that fills in the contents page.
+children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { after: 200 },
+  children: [new TextRun({ text: 'List of Tables', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
+children.push(new TableOfContents('Tables', { hyperlink: true, tcFieldIdentifier: 'T' }));
+children.push(new Paragraph({ spacing: { before: 360 }, heading: HeadingLevel.HEADING_1,
+  children: [new TextRun({ text: 'List of Figures', bold: true, size: 32, color: ACCENT, font: 'Calibri' })] }));
+children.push(new TableOfContents('Figures', { hyperlink: true, tcFieldIdentifier: 'F' }));
 children.push(new Paragraph({ children: [new PageBreak()] }));
 
 // ------------------------------------------------------------- chapters ---
