@@ -98,6 +98,7 @@ the methodology chapter.
 │   ├── stats.py                 McNemar, paired bootstrap, Wilson intervals
 │   ├── colab_sync.py            Persist work across Colab runtime restarts
 │   └── prototype/app.py         Screening and batch evaluation interface
+├── run_demo.sh                  Launch the interface for a live demonstration
 ├── requirements.txt
 ├── RESULTS.md
 └── README.md
@@ -157,6 +158,7 @@ python src/ablate_border.py --model mobilenetv2
 python src/ood_test.py             # behaviour on a condition outside the classes
 
 streamlit run src/prototype/app.py # the screening interface
+./run_demo.sh                      # the same interface, for a live demonstration
 ```
 
 `compare_models.py`, `audit_triage.py` and `sweep_thresholds.py` need neither a
