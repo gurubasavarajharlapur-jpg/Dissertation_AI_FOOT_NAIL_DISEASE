@@ -18,8 +18,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="${1:-$ROOT/build/space}"
 MODEL="mobilenetv2"
 
-WEIGHTS="$ROOT/models/${MODEL}_best.keras"
-CALIBRATION="$ROOT/results/metrics/${MODEL}_calibration.json"
+# ask the project where these live rather than assuming, so the script keeps
+# working if the layout in src/config.py ever moves
+PATHS="$(cd "$ROOT" && python -c "
+from src import config
+print(config.model_path('${MODEL}'))
+print(config.calibration_path('${MODEL}'))
+")"
+WEIGHTS="$(echo "$PATHS" | sed -n 1p)"
+CALIBRATION="$(echo "$PATHS" | sed -n 2p)"
 
 for required in "$WEIGHTS" "$CALIBRATION"; do
     if [[ ! -f "$required" ]]; then
@@ -59,16 +66,26 @@ git lfs track "*.keras" >/dev/null
 git add -A
 git -c user.email=noreply@example.com -c user.name="Space build" \
     commit -qm "Screening prototype for demonstration"
+git branch -M main          # Hugging Face serves the main branch
 
 echo
 echo "Space assembled in $TARGET"
 du -sh "$TARGET" | sed 's/^/  /'
 echo
-echo "Create the Space at https://huggingface.co/new-space (SDK: Streamlit), then:"
+echo "Next, in the browser:"
+echo "  1. https://huggingface.co/new-space  ->  SDK: Streamlit, Hardware: CPU basic (free)"
+echo "  2. https://huggingface.co/settings/tokens  ->  New token, type Write. Copy it."
+echo
+echo "Then here:"
 echo
 echo "  cd $TARGET"
-echo "  git remote add origin https://huggingface.co/spaces/<your-username>/<space-name>"
-echo "  git push -u origin main"
+echo "  git remote add origin https://huggingface.co/spaces/<username>/<space-name>"
+echo "  git push -u origin main --force"
 echo
-echo "First build takes about ten minutes. Open it once, take one photograph,"
-echo "and leave it: the model then stays loaded."
+echo "Git asks for a username and a password: the password is the token, not"
+echo "your account password. The push is forced because Hugging Face created"
+echo "the Space with its own first commit and this one replaces it, which is"
+echo "safe on a Space that has nothing in it yet."
+echo
+echo "First build takes about ten minutes. Then open it, take one photograph,"
+echo "and leave it: the model stays loaded after that."
